@@ -21,10 +21,16 @@ confirms before anything is reported as real.
 > and [`docs/POSITIONING_and_STRATEGY.md`](docs/POSITIONING_and_STRATEGY.md).
 
 > [!IMPORTANT]
-> **Status: Phase 1 — governance scaffold (pre-alpha).** This repository currently
-> contains the project's structure, governance, and CI skeleton only. There is **no
-> feature code yet** — that is by design (see [`docs/START_HERE_Master_Checklist.md`](docs/START_HERE_Master_Checklist.md)).
-> The first "walking skeleton" slice lands next.
+> **Status: Phase 2 — walking skeleton (pre-alpha).** The thinnest end-to-end slice works:
+> create an engagement with a scoped target, run one passive `security_headers` check
+> through the SDK's adapter plugin, and get deduplicated findings in PostgreSQL, in the UI,
+> and in an HTML report. A lab with a vulnerable and a clean target gates accuracy on
+> TP/FP/FN in CI.
+>
+> Still absent **by design**: authentication, the job queue, the playbook execution engine,
+> Active mode, exploitation, and any AI feature. See
+> [`docs/ROADMAP.md`](docs/ROADMAP.md) §4 for the MVP scope and
+> [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md) for defects that are known and deferred.
 
 > [!NOTE]
 > **A note on the name.** Some planning documents in [`docs/`](docs/) refer to the
@@ -67,12 +73,26 @@ cp .env.example .env        # then edit values as needed
 docker compose up --build
 ```
 
-Once the walking-skeleton code lands, the API will be at `http://localhost:8000` and
-the web UI at `http://localhost:3000`. Today the compose file builds the service
-skeletons so you can verify the topology end to end.
+The API is at `http://localhost:8000` (interactive docs at `/docs`) and the web console at
+`http://localhost:3000`. Database migrations are applied on start.
+
+A first run, end to end:
+
+```bash
+# 1. create an engagement with one in-scope target
+curl -X POST localhost:8000/engagements -H 'content-type: application/json' \
+  -d '{"name":"Demo","scope_allow":["example.com"],"targets":["https://example.com"]}'
+
+# 2. run the passive check, then read the findings
+curl -X POST localhost:8000/engagements/<id>/scan
+curl localhost:8000/engagements/<id>/findings
+
+# 3. open the report, or view it in the console
+open http://localhost:3000/engagements/<id>
+```
 
 Common tasks are wrapped in the [`Makefile`](Makefile): `make up`, `make down`,
-`make logs`, `make build`.
+`make logs`, `make test`, `make lint`, and `make accuracy` (the TP/FP/FN gate).
 
 ---
 
@@ -87,11 +107,12 @@ relicensing.
 | [`workflows/`](workflows/) | Deterministic YAML playbooks — the engine's brain |
 | [`backend/`](backend/) | FastAPI control plane, findings pipeline, deterministic services |
 | [`frontend/`](frontend/) | Next.js + Tailwind web console |
-| [`packages/adapters/`](packages/adapters/) | Plugin SDK: tool adapters + playbook loader |
+| [`packages/adapters/`](packages/adapters/) | Plugin SDK: tool adapters, playbook loader, and the scoped HTTP egress boundary |
 | [`packages/client/`](packages/client/) | Generated/typed API client |
 | [`lab/`](lab/) | Intentionally-vulnerable + clean targets for the accuracy harness |
 | [`wordlists/`](wordlists/) | Discovery / fuzzing wordlists |
 | [`docs/`](docs/) | Planning docs, architecture, and the contributor standard |
+| [`audits/`](audits/) | Per-repo code audit: file-by-file findings, severity, fixes |
 | [`.github/`](.github/) | Issue/PR templates and path-filtered CI |
 
 ---

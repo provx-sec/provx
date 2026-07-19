@@ -59,3 +59,6 @@ scan-output/
 # Only local, per-machine files are ignored:
 .claude/settings.local.json
 .claude/**/settings.local.json
+
+# Audit archives are generated artifacts, not source.
+*.zip

@@ -1,0 +1,7 @@
+# Accuracy expectations for the hardened clean target.
+# The false-positive tripwire: any finding at all on this target fails the gate.
+
+version: 1
+target: http://lab-hardened
+kind: negative
+expect_none: true

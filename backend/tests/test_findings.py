@@ -8,9 +8,7 @@ import uuid
 from datetime import date, datetime
 
 import pytest
-from pydantic import ValidationError
-
-from app.models.findings import (
+from provx_sdk.findings import (
     Confidence,
     Evidence,
     Finding,
@@ -19,6 +17,8 @@ from app.models.findings import (
     RiskAcceptance,
     Severity,
 )
+from pydantic import ValidationError
+
 from app.services.retest import retest
 
 
@@ -86,6 +86,16 @@ def test_epss_out_of_range_rejected() -> None:
 def test_invalid_enum_rejected() -> None:
     with pytest.raises(ValidationError):
         _finding(severity="apocalyptic")
+
+
+def test_display_id_format_enforced() -> None:
+    with pytest.raises(ValidationError):
+        _finding(display_id="BAD-1")
+
+
+def test_invalid_attack_technique_rejected() -> None:
+    with pytest.raises(ValidationError):
+        _finding(attack_techniques=["nope"])
 
 
 def test_risk_acceptance_requires_fields() -> None:

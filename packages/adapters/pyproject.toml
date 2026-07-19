@@ -1,12 +1,13 @@
 [project]
 name = "provx-sdk"
 version = "0.0.0"
-description = "Provx deterministic plugin SDK — tool adapters and playbooks that extend Provx without core edits."
+description = "Provx deterministic plugin SDK - tool adapters and playbooks that extend Provx without core edits."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Solomon Nii Amu Darku" }]
 dependencies = [
+    "httpx>=0.27",
     "pydantic>=2",
     "pyyaml>=6",
 ]
@@ -14,12 +15,13 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.2",
+    "pytest-asyncio>=0.23",
 ]
 
 # Tool adapters are auto-discovered via this entry-point group. Each adapter registers
 # itself here so the core can load it without any core edits (see README.md).
 [project.entry-points."provx.adapters"]
-# example = "provx_sdk.example:ExampleAdapter"
+security_headers = "provx_sdk.adapters.security_headers:SecurityHeadersAdapter"
 
 # Deterministic playbooks (the "brain") are discovered via this group, alongside adapters.
 [project.entry-points."provx.playbooks"]
@@ -35,3 +37,6 @@ packages = ["src/provx_sdk"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+# The scoped-fetch tests are async; keep the package self-testable standalone, not only
+# through the monorepo's root pytest.ini.
+asyncio_mode = "auto"

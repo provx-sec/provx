@@ -31,6 +31,9 @@
 | `VALIDATION_and_REFERENCE_SYSTEMS.md` | QA, human-in-the-loop, oracle benchmarking | current |
 | `START_HERE_Master_Checklist.md` | The ordered control checklist | current |
 | `BOOTSTRAP_with_ClaudeCode.md` | Claude Code + gh setup runbook | current |
+| `PROVX_RULES.md` | **Canonical source of the PX safety/engineering rules.** Cite by ID; mirrored into `.claude/rules.md` | current |
+| `PLAYBOOK_SCHEMA.md` | The deterministic playbook YAML schema | current |
+| `KNOWN_ISSUES.md` | Defects and residual risks that are known, reproduced, and deliberately deferred — the counterpart to [`../audits/`](../audits/) | current |
 
 ## Precedence when docs disagree
 

@@ -4,7 +4,7 @@
 Playbook loader + validator.
 
 Reads deterministic playbook YAML files into validated :class:`Playbook` models. This is
-loading and validation ONLY — there is no execution engine. Evaluating ``when`` / ``if``
+loading and validation ONLY - there is no execution engine. Evaluating ``when`` / ``if``
 expressions and running steps is a later phase.
 """
 
@@ -53,6 +53,12 @@ def load_playbooks_dir(directory: str | Path) -> dict[str, Playbook]:
     playbooks: dict[str, Playbook] = {}
     for file in sorted([*d.glob("*.yaml"), *d.glob("*.yml")]):
         pb = load_playbook(file)
+        # Silently overwriting a workflow would let one file replace another's methodology
+        # without a trace - not acceptable for a deterministic, auditable engine.
+        if pb.workflow in playbooks:
+            raise PlaybookValidationError(
+                f"duplicate workflow name {pb.workflow!r} in {d} ({file.name})"
+            )
         playbooks[pb.workflow] = pb
     return playbooks
 

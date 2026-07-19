@@ -2,7 +2,7 @@
 // Copyright 2026 Solomon Nii Amu Darku
 
 /**
- * Provx API client — placeholder.
+ * Provx API client - placeholder.
  *
  * The real client is generated from the backend OpenAPI schema once it stabilizes.
  * For now this exports the default API base URL so the frontend can wire against it.

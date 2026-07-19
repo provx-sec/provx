@@ -1,10 +1,10 @@
-# CODEOWNERS — who must review changes to each area.
+# CODEOWNERS - who must review changes to each area.
 #
 # GitHub requires the code owner to approve PRs touching their paths (once branch
 # protection is enabled on main). For now the maintainer owns everything; as area
 # owners join, replace the owner on the relevant line.
 #
-# NOTE: @darkusolomon1 is a placeholder for the maintainer's GitHub handle —
+# NOTE: @darkusolomon1 is a placeholder for the maintainer's GitHub handle;
 # confirm/replace it before enabling branch protection.
 
 # Default owner for everything in the repo
@@ -25,7 +25,7 @@
 # Accuracy lab (positive + clean targets, expected manifests)
 /lab/                       @darkusolomon1
 
-# Governance, CI, and repository meta — extra scrutiny
+# Governance, CI, and repository meta - extra scrutiny
 /.github/                   @darkusolomon1
 /docs/                      @darkusolomon1
 /LICENSE                    @darkusolomon1

@@ -643,6 +643,12 @@ PX-DSL"). Where a PX rule overlaps a baseline rule, the cross-reference is noted
 **Detect:** a tool/adapter invocation that runs before the target+request are checked against the engagement's allow/deny scope; scope decisions trusted from an upstream caller instead of re-checked at the adapter boundary.
 **Fix:** check every target and request against engagement scope **at the adapter boundary, before any tool runs**. An out-of-scope action is skipped and logged, never executed. Never trust scope from an upstream caller.
 
+### PX-EGRESS — all outbound HTTP goes through the scoped fetch boundary
+**Status:** ACTIVE
+**Why:** Scope is only enforced "at the boundary" if there is exactly one boundary. A second HTTP client is a second, unreviewed egress path — and a client configured to follow redirects itself carries the request off-scope *after* the gate passed, which is precisely the escape PX-SCOPE exists to prevent.
+**Detect:** `httpx.AsyncClient(`, `httpx.Client(`, `requests.`, `aiohttp.`, or `follow_redirects=True` anywhere outside `packages/adapters/src/provx_sdk/fetch.py`.
+**Fix:** call `provx_sdk.fetch.fetch_within_scope(url, policy, ...)`. It re-checks scope on every redirect hop, bounds the chain, and records the URL that actually responded so evidence is sealed against the responder. Adapters take a required `policy` parameter rather than assuming the caller checked. The one legitimate exception is the test suite's mock transports, which never reach a real network.
+
 ### PX-PASSIVE — passive/test mode is read-only
 **Status:** ACTIVE
 **Why:** Passive mode is the safe default operators rely on; any state change in it breaks that guarantee.

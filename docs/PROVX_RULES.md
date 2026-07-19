@@ -17,6 +17,19 @@ Every target and request is checked against the engagement's allow/deny scope **
 adapter boundary, before any tool runs**. Scope is never trusted from an upstream caller.
 An out-of-scope action is skipped and logged, never executed.
 
+### PX-EGRESS — all outbound HTTP goes through the scoped fetch boundary
+Every outbound HTTP request is made by `provx_sdk.fetch.fetch_within_scope`. Constructing an
+`httpx.AsyncClient`, a `requests` session, or any other HTTP client outside
+`provx_sdk/fetch.py` is a violation, as is passing `follow_redirects=True` — a client that
+follows redirects itself carries the request off-scope *after* the gate passed.
+
+This is the mechanically checkable form of [[PX-SCOPE]]: scope is only enforced at the
+boundary if there is exactly one boundary. One function to audit means reviewing it reviews
+the platform's entire egress.
+
+*Detect:* `httpx.AsyncClient(`, `httpx.Client(`, `requests.`, or `follow_redirects=True`
+anywhere outside `packages/adapters/src/provx_sdk/fetch.py`.
+
 ### PX-PASSIVE — passive/test mode is read-only
 In passive mode, no check may create, modify, or delete state on a target. If a check
 cannot guarantee that, it is `intrusive` and does not run in passive mode.

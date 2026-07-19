@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from provx_sdk.loader import find_workflows_dir, load_playbook
+from provx_sdk.loader import find_workflows_dir, load_playbook, load_playbooks_dir
 from provx_sdk.playbook import Playbook, PlaybookValidationError
 
 
@@ -57,3 +57,12 @@ def test_non_mapping_yaml_raises(tmp_path: Path) -> None:
 def test_load_missing_file_raises() -> None:
     with pytest.raises(PlaybookValidationError):
         load_playbook("does/not/exist.yaml")
+
+
+def test_duplicate_workflow_name_raises(tmp_path: Path) -> None:
+    # Two files declaring the same workflow name must fail, not silently overwrite.
+    body = "workflow: dup\non_discovery:\n  - when: x\n    run: [a]\n"
+    (tmp_path / "a.yaml").write_text(body, encoding="utf-8")
+    (tmp_path / "b.yaml").write_text(body, encoding="utf-8")
+    with pytest.raises(PlaybookValidationError):
+        load_playbooks_dir(tmp_path)

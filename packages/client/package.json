@@ -2,7 +2,7 @@
   "name": "@provx/client",
   "version": "0.0.0",
   "private": true,
-  "description": "Provx typed API client — talks to the FastAPI control plane.",
+  "description": "Provx typed API client - talks to the FastAPI control plane.",
   "license": "Apache-2.0",
   "author": "Solomon Nii Amu Darku",
   "type": "module",

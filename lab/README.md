@@ -11,21 +11,30 @@ See [`../docs/VALIDATION_and_REFERENCE_SYSTEMS.md`](../docs/VALIDATION_and_REFER
 and [`../docs/START_HERE_Master_Checklist.md`](../docs/START_HERE_Master_Checklist.md)
 (Phase 2) for the full design.
 
-> **Status: Phase 1 placeholder.** No targets are wired in yet. The layout below is the
-> plan; targets and the harness land in Phase 2, before the first real check.
+> **Status: live for the `security_headers` check.** Two nginx targets are wired in and the
+> harness is a real CI gate. More targets land alongside the checks that need them.
 
-## Planned layout
+Run it with `make accuracy` (brings the targets up, scores, tears them down). The gate
+exits non-zero on any false positive or false negative.
 
-```
+## Layout
+
+```text
 lab/
-├── positive/     # intentionally-vulnerable targets (should produce findings)
-│   ├── juice-shop/       expected.yml + compose
-│   ├── dvwa/             expected.yml + compose
-│   └── vampi/            expected.yml + compose   (API)
-├── clean/        # known-clean baselines (should produce ZERO findings)
-│   └── static-site/      expected.yml + compose
-└── expected.yml  # or one per target: exactly what should / should not be found
+├── positive/                    # intentionally-vulnerable targets (should produce findings)
+│   └── missing-headers/         nginx sending no security headers + expected.yml   [live]
+├── clean/                       # known-clean baselines (should produce ZERO findings)
+│   └── hardened/                nginx sending all of them + expected.yml           [live]
+├── harness.py                   # scores TP/FP/FN, exits non-zero on FP or FN
+├── tests/                       # tests for the scorer itself
+└── expected.yml                 # index + schema; the real oracles are per-target
 ```
+
+Planned additions as the matching checks arrive: OWASP Juice Shop, DVWA (web), VAmPI (API).
+
+Targets run under the compose `lab` profile on an `internal: true` network with no
+published ports, so `docker compose up` never starts them and nothing is reachable from
+outside the host.
 
 ## Positive cases (candidates)
 

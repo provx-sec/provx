@@ -1,28 +1,27 @@
-# Provx accuracy manifest — the oracle the accuracy gate scores against.
+# Provx accuracy manifest index.
 #
-# The accuracy harness runs Provx's checks against the lab targets and compares results
-# to this manifest, scoring True Positives / False Positives / False Negatives. A PR that
-# adds a false positive on a clean target, or misses a known vuln, fails the gate.
+# The oracle now lives NEXT TO EACH TARGET as `<target-dir>/expected.yml`, which is what
+# `lab/harness.py` loads (it globs `*/*/expected.yml`). This file stays as the entry point
+# documenting the layout and the schema.
+#
 # See docs/VALIDATION_and_REFERENCE_SYSTEMS.md and docs/START_HERE_Master_Checklist.md §2.
 #
-# Status: placeholder with an EMPTY ruleset. With no checks yet, the harness is green by
-# definition (GATE 2: "runs green on an empty ruleset"). Targets + expectations are added
-# in Phase 2, before the first real check.
+# Per-target schema:
+#
+#   version: 1
+#   target: http://<compose-service-name>
+#   kind: positive | negative
+#   expect:                       # positive targets: every entry MUST be found
+#     - id: <adapter>:<check>     # matches Finding.evidence.matched_rule
+#       min_severity: low         # optional floor; a weaker finding is not a hit
+#   expect_none: true             # negative targets: ANY finding fails the gate
 
 version: 1
 
-# Deliberately-vulnerable targets — each lists the findings that SHOULD be detected.
-positive: []
-# Example (Phase 2):
-# positive:
-#   - target: juice-shop
-#     expect:
-#       - id: security_headers
-#         min_severity: low
+# Deliberately-vulnerable targets - each lists the findings that SHOULD be detected.
+positive:
+  - lab/positive/missing-headers/expected.yml
 
-# Known-clean baselines — must produce ZERO findings (the false-positive tripwire).
-negative: []
-# Example (Phase 2):
-# negative:
-#   - target: clean-static-site
-#     expect_none: true
+# Known-clean baselines - must produce ZERO findings (the false-positive tripwire).
+negative:
+  - lab/clean/hardened/expected.yml

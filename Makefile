@@ -1,11 +1,13 @@
-# Provx — developer task shortcuts. Run `make help` to list targets.
-# Thin wrappers over docker compose and per-service tooling. TODO markers show where
-# real commands land as features arrive.
+# Provx - developer task shortcuts. Run `make help` to list targets.
+# Thin wrappers over docker compose and per-service tooling.
 
 COMPOSE ?= docker compose
+# Prefer the repo venv when it exists so `make test` works without activating it.
+PY ?= $(shell test -x .venv/bin/python && echo .venv/bin/python || echo python3)
+PY_SOURCES := backend packages/adapters lab
 
 .DEFAULT_GOAL := help
-.PHONY: help up down build rebuild logs ps restart lint fmt test clean env
+.PHONY: help up down build rebuild logs ps restart lint fmt test accuracy clean env
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -34,16 +36,26 @@ ps: ## Show running services
 
 restart: down up ## Restart the stack
 
-lint: ## Lint all code
-	@echo "TODO backend: cd backend && ruff check . && ruff format --check ."
-	@echo "TODO frontend: cd frontend && npm run lint"
+lint: ## Lint and type-check all code
+	$(PY) -m ruff check $(PY_SOURCES)
+	$(PY) -m ruff format --check $(PY_SOURCES)
+	$(PY) -m mypy backend/app packages/adapters/src/provx_sdk lab
+	cd frontend && npm run lint && npm run typecheck
 
 fmt: ## Auto-format all code
-	@echo "TODO backend: cd backend && ruff format ."
-	@echo "TODO frontend: cd frontend && npx prettier --write ."
+	$(PY) -m ruff format $(PY_SOURCES)
+	$(PY) -m ruff check --fix $(PY_SOURCES)
 
 test: ## Run unit + fixture tests
-	@echo "TODO backend: cd backend && pytest"
+	APP_ENV=testing $(PY) -m pytest -q
+
+accuracy: ## Score the deterministic checks against the lab targets (TP/FP/FN gate)
+	# --build is not optional: a stale image scores yesterday's code and the gate passes
+	# without having tested anything.
+	$(COMPOSE) --profile lab build accuracy
+	$(COMPOSE) --profile lab up -d lab-missing-headers lab-hardened
+	$(COMPOSE) --profile lab run --rm accuracy; \
+		status=$$?; $(COMPOSE) --profile lab down; exit $$status
 
 clean: ## Remove containers, volumes, and build artifacts
 	$(COMPOSE) down -v --remove-orphans

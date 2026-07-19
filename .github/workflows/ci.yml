@@ -2,7 +2,10 @@ name: ci
 
 # Path-filtered CI skeleton.
 #
-# Every gate below is a PASSING NO-OP for now — the real commands land as features do.
+# Some gates are real, some are still stubs; the remaining stubs become real as features land.
+#   Real now: dco, backend-lint (ruff), backend-types (mypy), unit-fixtures (pytest),
+#     frontend-types (tsc), accuracy (TP/FP/FN vs the lab targets).
+#   Still stubs (passing no-ops): frontend-lint, secrets-deps.
 # The `changes` job computes which parts of the monorepo a PR touched, and each gate
 # runs ONLY for the relevant paths (backend changes run backend gates, etc.), so an
 # unrelated change doesn't pay for every gate.
@@ -55,7 +58,7 @@ jobs:
               - '.github/workflows/**'
 
   # ---------------------------------------------------------------------------
-  # Gate 1 — DCO: every commit in the change range must carry a Signed-off-by trailer.
+  # Gate 1 - DCO: every commit in the change range must carry a Signed-off-by trailer.
   # ---------------------------------------------------------------------------
   dco:
     runs-on: ubuntu-latest
@@ -89,7 +92,7 @@ jobs:
           echo "All commits are signed off."
 
   # ---------------------------------------------------------------------------
-  # Gate 2 — Lint (ruff/black for Python, eslint/prettier for frontend).
+  # Gate 2 - Lint (ruff/black for Python, eslint/prettier for frontend).
   # ---------------------------------------------------------------------------
   backend-lint:
     needs: changes
@@ -103,9 +106,9 @@ jobs:
       - name: Install ruff
         run: pip install ruff
       - name: ruff check
-        run: ruff check backend packages/adapters
+        run: ruff check backend packages/adapters lab
       - name: ruff format --check
-        run: ruff format --check backend packages/adapters
+        run: ruff format --check backend packages/adapters lab
 
   frontend-lint:
     needs: changes
@@ -113,10 +116,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: eslint / prettier (stub)
-        run: echo "[stub] frontend lint — eslint + prettier --check on frontend/ and packages/client/."
+        run: echo "[stub] frontend lint - eslint + prettier --check on frontend/ and packages/client/."
 
   # ---------------------------------------------------------------------------
-  # Gate 3 — Type check (mypy for Python, tsc for TypeScript).
+  # Gate 3 - Type check (mypy for Python, tsc for TypeScript).
   # ---------------------------------------------------------------------------
   backend-types:
     needs: changes
@@ -127,22 +130,39 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # mypy needs the real runtime deps installed to resolve types through them; the
+      # backend lock plus the SDK is the same set the image gets.
       - name: Install mypy + typed deps
-        run: pip install mypy pydantic types-PyYAML fastapi
+        run: |
+          pip install -r backend/requirements.lock
+          pip install --no-deps ./packages/adapters
+          pip install mypy types-PyYAML
       - name: mypy (strict)
-        run: mypy backend/app packages/adapters/src/provx_sdk
+        run: mypy backend/app packages/adapters/src/provx_sdk lab
 
   frontend-types:
     needs: changes
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.client == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: tsc (stub)
-        run: echo "[stub] frontend types — tsc --noEmit on frontend/ and packages/client/."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: tsc --noEmit
+        working-directory: frontend
+        run: npm run typecheck
 
   # ---------------------------------------------------------------------------
-  # Gate 4 — Unit + parser fixtures. Runs the Finding-model and playbook-loader tests.
-  # (Real gate. lint/types remain stubs, so ruff/mypy don't run here yet.)
+  # Gate 4 - Unit + fixture tests: the Finding model, playbook loader, adapter fixtures,
+  # scope enforcement, the API, migrations, and the accuracy scorer.
+  # (Real gate. Backend ruff/mypy run as their own real gates, see backend-lint and
+  # backend-types above; only frontend-lint and secrets-deps remain stubs.)
   # ---------------------------------------------------------------------------
   unit-fixtures:
     needs: changes
@@ -153,27 +173,38 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # The SDK is installed (not just on PYTHONPATH) so entry-point adapter discovery
+      # resolves the same way it does at runtime.
       - name: Install test dependencies
-        run: pip install pydantic pyyaml pytest
+        run: |
+          pip install -r backend/requirements.lock
+          pip install ./packages/adapters
+          pip install pytest pytest-asyncio
       - name: Run unit + fixture tests
+        env:
+          APP_ENV: testing
         run: pytest -q
 
   # ---------------------------------------------------------------------------
-  # Gate 5 — Accuracy harness: score TP/FP/FN vs lab/expected.yml; fail on new FP/FN.
+  # Gate 5 - Accuracy harness: score TP/FP/FN vs lab/expected.yml; fail on new FP/FN.
   # ---------------------------------------------------------------------------
   accuracy:
     needs: changes
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.adapters == 'true' || needs.changes.outputs.lab == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: accuracy gate (stub)
-        run: echo "[stub] accuracy — score checks vs lab/expected.yml (TP/FP/FN); fail new false positives or regressions. Green on an empty ruleset."
+      - uses: actions/checkout@v4
+      # Brings up the lab targets and scores the adapter against each target's
+      # expected.yml. Any false positive on the clean target, or any missed known issue,
+      # fails the build.
+      - name: Score accuracy against the lab targets
+        run: make accuracy
 
   # ---------------------------------------------------------------------------
-  # Gate 6 — Secret scanning + dependency & license audit. Runs on every PR.
+  # Gate 6 - Secret scanning + dependency & license audit. Runs on every PR.
   # ---------------------------------------------------------------------------
   secrets-deps:
     runs-on: ubuntu-latest
     steps:
       - name: gitleaks / pip-audit / npm audit / license check (stub)
-        run: echo "[stub] secrets-deps — gitleaks on diff, pip-audit + npm audit, and an SPDX license-compatibility check."
+        run: echo "[stub] secrets-deps - gitleaks on diff, pip-audit + npm audit, and an SPDX license-compatibility check enforcing PX-FREE (free/OSS Apache-compatible deps only) once real dependencies exist."

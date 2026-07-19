@@ -5,12 +5,13 @@ export default function Home() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-4 px-6">
       <h1 className="text-3xl font-semibold">Provx</h1>
       <p className="text-neutral-600 dark:text-neutral-400">
-        Governed automated security validation — web, API &amp; infra in one console.
+        Governed automated security validation - web, API &amp; infra in one console.
         Safe by default.
       </p>
       <p className="text-sm text-neutral-500">
-        Phase 1 skeleton. The console is under construction — see the roadmap in{" "}
-        <code>docs/ROADMAP.md</code>.
+        Walking skeleton. Create an engagement and run a scan through the API, then open{" "}
+        <code>/engagements/&lt;id&gt;</code> to review its findings. The full console is
+        under construction - see the roadmap in <code>docs/ROADMAP.md</code>.
       </p>
     </main>
   );

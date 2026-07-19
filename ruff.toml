@@ -6,3 +6,8 @@ line-length = 100
 
 [lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom puts Depends()/Query() calls in argument defaults;
+# that is the documented pattern, not the mutable-default bug B008 targets.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]

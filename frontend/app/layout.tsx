@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Provx",
-  description: "Governed automated security validation — web, API & infra. Safe by default.",
+  description: "Governed automated security validation - web, API & infra. Safe by default.",
 };
 
 export default function RootLayout({

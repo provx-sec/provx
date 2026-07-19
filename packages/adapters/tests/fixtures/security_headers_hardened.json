@@ -1,0 +1,19 @@
+{
+  "final_url": "http://lab-hardened",
+  "headers": {
+    "content-length": "728",
+    "content-security-policy": "default-src 'self'",
+    "content-type": "text/html; charset=utf-8",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "server": "nginx/1.27.4",
+    "strict-transport-security": "max-age=31536000; includeSubDomains",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY"
+  },
+  "redirect_chain": [
+    "http://lab-hardened"
+  ],
+  "status_code": 200,
+  "stopped_reason": null,
+  "target": "http://lab-hardened"
+}

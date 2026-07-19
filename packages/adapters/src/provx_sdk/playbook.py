@@ -1,19 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Solomon Nii Amu Darku
 """
-Deterministic playbook models — the schema for Provx's "brain".
+Deterministic playbook models - the schema for Provx's "brain".
 
 A playbook encodes pentest methodology as auditable rules (see docs/PLAYBOOK_SCHEMA.md and
 docs/DETERMINISTIC_CORE_and_NonAI_Strengths.md §3). These Pydantic models are the enforced
 schema; ``loader.py`` reads YAML into them.
 
 Scaffolding boundary: the ``when`` / ``if`` expression strings are stored verbatim and are
-NOT parsed or evaluated here. There is no execution engine yet — this module only models
+NOT parsed or evaluated here. There is no execution engine yet - this module only models
 and validates playbook structure. No AI is involved anywhere in this path.
 
-SECURITY — rule PX-DSL (see docs/PROVX_RULES.md): when the evaluator is built, it MUST be a
+SECURITY - rule PX-DSL (see docs/PROVX_RULES.md): when the evaluator is built, it MUST be a
 restricted, allowlisted evaluator. ``eval()`` / ``exec()`` and any equivalent dynamic code
-execution are FORBIDDEN — evaluating an untrusted playbook expression with them is a remote
+execution are FORBIDDEN - evaluating an untrusted playbook expression with them is a remote
 code execution hole. The planned design is a fixed operator set (comparisons + boolean
 ``and``/``or``/``not``) over a known **facts namespace** only: no function calls, no
 attribute traversal beyond whitelisted facts, no imports.
@@ -38,7 +38,7 @@ class DiscoveryRule(BaseModel):
     """A rule the engine evaluates against discovered facts.
 
     ``run`` steps are passive/safe; ``active_only`` steps are intrusive and gated to
-    Active mode — they never run in passive/test.
+    Active mode - they never run in passive/test.
     """
 
     model_config = ConfigDict(extra="forbid")

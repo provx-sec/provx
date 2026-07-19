@@ -1,0 +1,18 @@
+# Accuracy expectations for the missing-headers positive target.
+# Every check listed here MUST fire; anything the adapter reports that is not listed counts
+# as a false positive. See ../../README.md and docs/VALIDATION_and_REFERENCE_SYSTEMS.md.
+
+version: 1
+target: http://lab-missing-headers
+kind: positive
+expect:
+  - id: security_headers:content-security-policy
+    min_severity: low
+  - id: security_headers:x-frame-options
+    min_severity: low
+  - id: security_headers:strict-transport-security
+    min_severity: low
+  - id: security_headers:x-content-type-options
+    min_severity: low
+  - id: security_headers:referrer-policy
+    min_severity: low

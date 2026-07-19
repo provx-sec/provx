@@ -1,4 +1,4 @@
-# Provx label taxonomy — the single source of truth for repository labels.
+# Provx label taxonomy - the single source of truth for repository labels.
 #
 # Format is compatible with label-sync tooling (e.g. crazy-max/ghaction-github-labeler
 # or github-label-sync). Each entry: name, color (hex, no '#'), description.
@@ -45,7 +45,7 @@
   description: "Reporting engine and templates"
 - name: "area:platform-sec"
   color: "5319e7"
-  description: "RBAC, secrets, audit log — Provx's own security"
+  description: "RBAC, secrets, audit log - Provx's own security"
 - name: "area:docs"
   color: "5319e7"
   description: "Documentation and contributor on-ramp"
@@ -56,7 +56,7 @@
 # --- Priority -----------------------------------------------------------------
 - name: "priority:P0"
   color: "b60205"
-  description: "Critical — drop everything"
+  description: "Critical - drop everything"
 - name: "priority:P1"
   color: "d93f0b"
   description: "High"
@@ -82,7 +82,7 @@
   description: "Accuracy gate / CODEOWNER must confirm TP/FP/FN"
 - name: "safety-review"
   color: "b60205"
-  description: "Touches the intrusive/exploit path — safety review required"
+  description: "Touches the intrusive/exploit path - safety review required"
 - name: "blocked"
   color: "000000"
   description: "Blocked on another issue or external dependency"

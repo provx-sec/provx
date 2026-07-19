@@ -2,7 +2,7 @@
   "name": "provx-frontend",
   "version": "0.0.0",
   "private": true,
-  "description": "Provx web console — Next.js + Tailwind (skeleton).",
+  "description": "Provx web console - Next.js + Tailwind (skeleton).",
   "license": "Apache-2.0",
   "author": "Solomon Nii Amu Darku",
   "scripts": {

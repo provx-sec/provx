@@ -5,7 +5,7 @@ contact_links:
     about: Please ask usage questions in Discussions, not the issue tracker.
   - name: Report a security vulnerability in Provx itself
     url: https://github.com/darkusolomon1/provx/security/policy
-    about: Do NOT open a public issue for security problems — follow SECURITY.md.
+    about: Do NOT open a public issue for security problems - follow SECURITY.md.
   - name: Responsible / authorized use
     url: https://github.com/darkusolomon1/provx/blob/main/RESPONSIBLE_USE.md
-    about: Provx is offensive tooling — run it only against systems you are authorized to test.
+    about: Provx is offensive tooling - run it only against systems you are authorized to test.

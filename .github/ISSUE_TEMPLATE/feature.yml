@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a new capability or improvement (not a new tool adapter — use that form).
+description: Propose a new capability or improvement (not a new tool adapter - use that form).
 title: "feat: <short description>"
 labels: ["type:feature"]
 body:
