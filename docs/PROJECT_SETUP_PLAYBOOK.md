@@ -70,6 +70,15 @@ Create milestones `v0.1 MVP`, `v0.5 Depth`, `v1.0 Full`, `v2.0 Reach`, each with
 - [ ] `CODEOWNERS`: for now you own everything (`* @you`); as area owners join, assign `backend/modules/web/ @web-owner` etc. so the right person must approve.
 - [ ] Protect `main`: require PR, require CI to pass, require 1 approving review, require DCO sign-off, no direct pushes, linear history.
 
+### A6.5. Track `.claude/` as project governance (critical — don't skip)
+The Claude Kit installs a `.claude/` folder, and kits often **gitignore it as local config**. For Provx that's wrong: the rules and skills *are* the project's enforced governance and must ship with the repo, or contributors clone a project whose enforced rules aren't actually present.
+- [ ] **Track** (governance, shared with everyone): `.claude/rules.md`, `.claude/skills/`, `.claude/scripts/`, `.claude/workflows/`.
+- [ ] **Keep local** (per-machine): `.claude/settings.local.json` and any personal/state files.
+- [ ] Fix `.gitignore` so the governance files are tracked and only the local ones are ignored; confirm with `git status` that `rules.md`/`skills/`/`scripts/` are staged.
+- [ ] Keep `.claude/rules.md` (enforced) and `docs/PROVX_RULES.md` (human-readable safety contract) **in parity** — same rule IDs, no divergence. A drift between them means the doc lies about what's enforced.
+
+**Why it matters:** the "the machine enforces the standard for everyone" model depends entirely on `.claude/` being version-controlled. Untracked = one `git clean`/fresh clone from losing every guardrail, and contributors never receive the rules, skills, or pre-commit hook.
+
 ### A7. Labels (¼ day) — standard taxonomy
 `type:bug` `type:feature` `type:adapter` `type:use-case` `type:docs` `type:chore` · `area:web` `area:api` `area:infra` `area:ai` `area:report` `area:core` `area:platform-sec` · `priority:P0…P3` · `good-first-issue` · `help-wanted` · **`needs-fixture`** · **`needs-accuracy-review`** · **`safety-review`** · `blocked` · `duplicate` · `wontfix`. (Commit a `labels.yml` so labels are reproducible.)
 
@@ -238,6 +247,7 @@ jobs:
 3. [ ] Add all Phase A3 community health files (start from templates above + Contributor Covenant).
 4. [ ] Set up the GitHub Project board (fields, 3 views) and the 4 milestones.
 5. [ ] Add labels (`labels.yml`), CODEOWNERS, branch protection on `main`.
+5b. [ ] Fix `.gitignore` so `.claude/` governance (rules/skills/scripts/workflows) is **tracked**, only local settings ignored (A6.5).
 6. [ ] Add the PR template, issue forms, and CI skeleton (gates can start as no-ops, filled in as features land).
 7. [ ] Write the first 10 issues on the board: the **walking skeleton** broken into tasks, each `Ready`.
 8. [ ] Open a public roadmap so contributors see the standard and where help is wanted.

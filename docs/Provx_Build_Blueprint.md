@@ -21,7 +21,8 @@ provx/
 ├── frontend/           # Next.js UI
 ├── packages/
 │   ├── adapters/       # tool-adapter plugin SDK (publishable)
-│   └── client/         # thin API client others can install standalone
+│   ├── client/         # thin API client others can install standalone
+│   └── cli/            # thin CLI over client (reserved; built after the walking skeleton)
 ├── workflows/          # deterministic YAML playbooks (the "brain")
 ├── lab/                # intentionally-vulnerable + clean targets (accuracy benchmark)
 ├── wordlists/          # discovery / fuzzing wordlists
@@ -32,6 +33,8 @@ provx/
 ```
 
 **Core sections (nav):** Dashboard · Engagements · Scans · Findings · Approvals · Reports · (optional) AI Advisor · User management · Configurations.
+
+**Interfaces — UI + CLI + API (both UI and CLI free).** Provx exposes three front-ends over one FastAPI core: the Web UI, a first-class **CLI**, and scripts. The CLI is a client of the API (a thin wrapper over `packages/client`), so it inherits full governance parity — scope, passive/active, and approval gates — with no bypass, plus `--json`/SARIF output and CI-friendly exit codes. See [`ROADMAP.md`](ROADMAP.md) §5 (Interfaces) and rule PX-FREE.
 
 *The feature catalog below was validated against a reference implementation; it is the menu Provx builds from, prioritized by the roadmap — not a spec to build all at once.*
 

@@ -12,6 +12,8 @@
 - **Repo:** free GitHub **org**, **single monorepo**, isolation via workspaces + path-filtered CI.
 - **Stack:** Python 3.12 + FastAPI · Next.js · PostgreSQL · Docker Compose · all OSS. AI behind a provider abstraction (LiteLLM), off by default, local option.
 - **Core brain:** deterministic **workflow/playbook engine** + findings intelligence (dedup, EPSS, risk-acceptance, retest). AI is an optional advisor on top.
+- **Interfaces:** **UI + CLI + API**, one FastAPI core, three front-ends. The CLI is a first-class, **free** interface (a thin client over `packages/client`) with full governance parity — no gate bypass. Both UI and CLI are free; monetize scale, never the core.
+- **Free-only dependencies (PX-FREE):** the core depends only on free/OSS Apache-compatible packages and wrapped tools. Paid tools/APIs are optional, bring-your-own-key integrations only — never required by the free core.
 
 ## The doc set (and what each owns)
 
@@ -20,6 +22,8 @@
 | `00_README_docs_index.md` (this) | Canonical decisions + precedence | current |
 | `POSITIONING_and_STRATEGY.md` | Who Provx is for; how it differs from Strix/PentAGI; free-now/paid-later | current |
 | `DETERMINISTIC_CORE_and_NonAI_Strengths.md` | The deterministic engine as the brain; borrowed non-AI ideas; AI-optional | current |
+| `COMPETITIVE_HARVEST_and_CLI.md` | What to borrow from existing tools; the free-usage levers; the first-class **CLI** decision (one API, three front-ends) | current |
+| `COMPETITOR_LANDSCAPE_CATALOG.md` | Full competitor/tool landscape reference (wrap / borrow / differentiate / avoid); feeds the rolling roadmap | current |
 | `REPOSITORY_STRATEGY.md` | Org + monorepo + isolation | current |
 | `Provx_Build_Blueprint.md` | Full feature/architecture catalog (the menu) | current (rebranded) |
 | `ROADMAP.md` | Phases, cadence, contributor standard, DoD | current — see note ▼ |

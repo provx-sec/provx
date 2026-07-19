@@ -1,4 +1,4 @@
-# PenForge — Roadmap & Contributor Standard
+# Provx — Roadmap & Contributor Standard
 
 *The governed, open-source automated security validation platform. Web · API · AD/Infra in one console. Safe enough to run against a test environment without changing anything; exploitation only ever runs on explicit human approval.*
 
@@ -41,7 +41,7 @@ This is the one that bites people later. Decide now, because you cannot retrofit
 
 - **License model: Open Core.** Core repo under **Apache-2.0** (permissive + patent grant, corporate-legal-friendly). Keep future paid features (SSO, multi-tenant, hosted SaaS, advanced reporting) in a **separate private repo** — that way community contributions to the core never need to be relicensed, and you keep the money-makers.
 - **Contributions: DCO, not a heavy CLA.** A `Signed-off-by` line per commit. Low friction; keeps copyright with authors; enough for open core.
-- **Trademark the name "PenForge."** The trademark is often what you actually license commercially. Cheap insurance.
+- **Trademark the name "Provx."** The trademark is often what you actually license commercially. Cheap insurance.
 - **Ship a `RESPONSIBLE_USE.md` + `SECURITY.md`** from commit #1 (offensive tooling = real liability).
 
 ### Step 1 — The Walking Skeleton (the actual first code)
@@ -158,6 +158,28 @@ flowchart LR
   REG --> CORE[Core discovers plugin - no core edits]
 ```
 
+### Interfaces — one API, three front-ends
+
+The CLI is a **first-class interface**, not an afterthought. Web UI, CLI, and scripts are all clients of the same FastAPI core, so they share one code path and never drift.
+
+```mermaid
+flowchart LR
+  UI[Web UI] --> API[FastAPI core]
+  CLI[CLI - thin wrapper over packages/client] --> API
+  SCR[Scripts / CI] --> API
+  API --> ENG[deterministic engine, findings, reports]
+```
+
+The CLI is a thin wrapper over [`packages/client`](../packages/client/) (the API client already in the monorepo); UI and CLI reach parity for free because both are just callers. Non-negotiables:
+
+- **Governance parity, not a bypass.** The CLI is an API client, so it inherits every safety gate — scope (PX-SCOPE), passive/active (PX-PASSIVE / PX-ACTIVE), approval-gated exploitation (PX-EXPLOIT). There is no CLI backdoor around the rules.
+- **Machine-friendly output:** `--json` and **SARIF** output, plus meaningful **exit codes** (non-zero on failure/policy breach) so it drops into CI pipelines and PR gates.
+- **Local or remote:** point at a local instance or a remote server (`--server`) with token auth.
+- **Works with zero AI:** deterministic by default; the AI advisor is an opt-in flag.
+- **Standalone install** (`pipx install provx`) so people start from the terminal without deploying the full stack.
+
+**Timing:** build a minimal `provx scan` + `provx findings list` over `packages/client` **right after the walking skeleton (§3) exists — not before.** A `packages/cli/` placeholder reserves the structure now; the CLI grows with the API. Both UI and CLI ship free (see the monetization mechanic in §6).
+
 ---
 
 ## 6. Roadmap (v0.1 → v2.0)
@@ -166,7 +188,7 @@ Dates are **solo-dev estimates** and will move — they signal sequence and stan
 
 ```mermaid
 gantt
-  title PenForge phased roadmap (indicative)
+  title Provx phased roadmap (indicative)
   dateFormat YYYY-MM
   section Foundation
   Step 0 license + repo governance      :2026-08, 15d
@@ -177,7 +199,7 @@ gantt
   section v0.5 - Depth
   API module (OWASP API Top 10)          :2026-12, 2M
   Retest / verify + scan-to-scan diffing :2027-01, 1M
-  Scheduling + CLI/REST for CI gates     :2027-02, 1M
+  SARIF + CI diff-scoping + CLI/REST gates :2027-02, 1M
   section v1.0 - Full pentest
   AD/Infra module + approvals + exploit sandbox :2027-03, 3M
   AI Autopilot + analyst + remediation deps     :2027-05, 2M
@@ -192,6 +214,23 @@ gantt
 - **v0.5** — API coverage + one-click retest + diff between two scans + a working `POST /scan` API usable in CI.
 - **v1.0** — all three modules, approval-gated safe exploitation with replay log, autopilot within scope/mode, compliance-tagged reports. This is the "credible product" line.
 - **v2.0** — attack-path graph, mobile static, integrations, optional cloud.
+
+### Rolling additions from the competitor/tool landscape
+
+The staged plan for *what to add over time* is driven by [`COMPETITOR_LANDSCAPE_CATALOG.md`](COMPETITOR_LANDSCAPE_CATALOG.md) and [`COMPETITIVE_HARVEST_and_CLI.md`](COMPETITIVE_HARVEST_and_CLI.md). Borrow proven, mostly-free pieces; never chase incumbent breadth. The deterministic engine stays the headline; AI stays optional.
+
+- **v0.x (now):** wrap a handful of free OSS engines (nmap, nuclei, ZAP, sqlmap as subprocess) and ship the deterministic engine + findings + report + free **UI and CLI**.
+- **v0.5 (depth):** DefectDojo-style findings intelligence (intelligent dedup, EPSS prioritization, risk-acceptance audit trail, retest/auto-close) + **SARIF** import/export + **CI diff-scoping** (scan only the changed scope in a PR).
+- **v1.0 (full pentest):** governed AD/infra (wrap BloodHound/Metasploit, approval-gated) + the **optional** AI advisor (PentestGPT-style reasoning) + compliance mappings.
+- **later (on demand only):** mobile-static via MobSF; cloud via Trivy/ScoutSuite/Prowler. Added if demand appears, not pre-built.
+
+### Monetization mechanic (document only — do not build yet)
+
+The pricing model is recorded now so features don't accidentally paywall the core; it is **not** implemented until there's adoption.
+
+- **Free CLI *and* free UI.** Sn1per's Community edition is CLI-only and paywalls the web UI; Provx gives the governed **UI + CLI + API** free.
+- **Monetize scale and convenience, never basic scanning:** asset/workspace quotas + hosting, SSO, multi-tenant, compliance packs, and support are the paid edges.
+- **The free core stays uncrippled** — no asset/scan caps, standalone CLI install, rides free community content (Nuclei templates, CISA KEV). This is the Sn1per pricing *mechanic* without the "UI behind a paywall" downside.
 
 ---
 

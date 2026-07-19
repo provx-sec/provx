@@ -73,7 +73,7 @@ hard-depend on an LLM.
 
 ---
 
-## Quality
+## Quality & evidence
 
 ### PX-FIXTURE — adapters ship fixtures
 Every tool adapter ships a recorded raw-output fixture plus the expected normalized
@@ -88,3 +88,42 @@ Findings are de-duplicated and carry a severity + CVSS and **≥1 MITRE ATT&CK t
 No finding is presented as "true" on its own. Findings carry a confidence level and move
 through the validation lifecycle before entering a client report
 ([`VALIDATION_and_REFERENCE_SYSTEMS.md`](VALIDATION_and_REFERENCE_SYSTEMS.md)).
+
+### PX-EVIDENCE — evidence is hashed, timestamped, and append-only
+Findings are only defensible if their evidence can be shown unaltered since capture, and a
+mutable audit log can be rewritten to hide activity. Hash every evidence artifact (tool output,
+screenshots, proofs) with SHA-256 and record a capture timestamp **at capture time**. Store
+evidence and the audit log **append-only** — no update or delete paths; a correction is a new
+entry referencing the prior one. Every state-changing action writes an audit entry. Reinforces
+[PX-SECRETS](#px-secrets--protect-our-own-secrets).
+
+### PX-LICENSE — respect upstream tool licenses
+Absorbing GPL/AGPL source into Provx would relicense the project; the open-core model depends on
+keeping copyleft tools at arm's length. Never copy, vendor, or bundle the source of
+GPL/AGPL/custom-licensed tools (sqlmap, nmap, OpenVAS) into the codebase, and never wrap a
+copyleft tool as a linked library. Invoke external tools **only as separate subprocesses** (mere
+aggregation). Keep the AGPL/copyleft boundary out of any closed edition, and keep the SPDX
+license-compatibility check in CI. See [PX-DSL](#px-dsl--no-evalexec-in-the-playbook-engine) for
+the engine boundary.
+
+### PX-FREE — free & open-source dependencies and wrapped tools only
+Provx's promise is a genuinely free, self-hostable platform: a paid/proprietary dependency,
+or a wrapped tool that needs a paid license, breaks that promise. Do not add a dependency
+under a non-free/proprietary license, and do not wrap a tool that requires a paid license
+(Nessus, Burp Suite Pro, paid Shodan/Censys API, Cobalt Strike) as a **required** part of
+the free core, or ship a core feature that only works via a paid third-party SaaS/API.
+Use free, OSI-approved, Apache-compatible packages (verified by the SPDX license-compatibility
+check in CI). Paid tools/APIs may exist **only** as optional integrations the user configures
+with their own key/license — never required by, or bundled into, the free core. AI providers
+are optional, bring-your-own-key, with a free local (Ollama) option. Reinforces
+[PX-LICENSE](#px-license--respect-upstream-tool-licenses) (the tool-license boundary, also in
+[`DETERMINISTIC_CORE_and_NonAI_Strengths.md`](DETERMINISTIC_CORE_and_NonAI_Strengths.md) §6) and
+[PX-AI-OPTIONAL](#px-ai-optional--ai-is-an-optional-advisor-never-required).
+
+### PX-ERRORS — user-safe errors, gated on APP_ENV
+Stack traces and internal details in a client-facing response leak infrastructure information
+and look unprofessional in a security product. Return a generic, user-safe message plus a stable
+error code to clients, and log the real exception server-side. Expose stack traces or internal
+detail **only** when `APP_ENV` is `dev`/`local`; never leave `debug=True` reachable outside
+dev/local. Reinforces the baseline error-handling rules (S-13, B-FA-06) with an explicit
+`APP_ENV` gate.
