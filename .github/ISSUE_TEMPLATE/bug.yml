@@ -7,8 +7,8 @@ body:
     attributes:
       value: |
         Thanks for reporting a bug. Please search existing issues first.
-        For questions, use [Discussions](https://github.com/darkusolomon1/provx/discussions).
-        For security vulnerabilities, follow [SECURITY.md](https://github.com/darkusolomon1/provx/security/policy) instead.
+        For questions, use [Discussions](https://github.com/provx-sec/provx/discussions).
+        For security vulnerabilities, follow [SECURITY.md](https://github.com/provx-sec/provx/security/policy) instead.
   - type: textarea
     id: what-happened
     attributes:

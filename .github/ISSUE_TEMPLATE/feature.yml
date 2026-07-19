@@ -8,7 +8,7 @@ body:
       value: |
         Proposing a new **tool adapter or detection use-case**? Use the
         "New tool adapter / use-case" form instead. Every feature must serve the
-        four principles in [ROADMAP.md](https://github.com/darkusolomon1/provx/blob/main/docs/ROADMAP.md) §1.
+        four principles in [ROADMAP.md](https://github.com/provx-sec/provx/blob/main/docs/ROADMAP.md) §1.
   - type: textarea
     id: problem
     attributes:

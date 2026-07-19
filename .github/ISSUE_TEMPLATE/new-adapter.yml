@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Adapters extend Provx **without touching the core**. See the adapter cookbook in
-        [CONTRIBUTING.md](https://github.com/darkusolomon1/provx/blob/main/CONTRIBUTING.md#4-adapter-cookbook--add-a-tool-in-one-place).
+        [CONTRIBUTING.md](https://github.com/provx-sec/provx/blob/main/CONTRIBUTING.md#4-adapter-cookbook--add-a-tool-in-one-place).
         A fixture test and an accuracy plan are **required** before this can merge.
   - type: input
     id: name

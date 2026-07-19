@@ -39,6 +39,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/PROVX_RULES.md` — the PX safety/engineering rules (incl. **PX-DSL**: the future
   playbook evaluator must be a restricted/allowlisted evaluator; `eval()`/`exec()` are
   forbidden). Cross-linked from `CONTRIBUTING.md` and `docs/PLAYBOOK_SCHEMA.md`.
+- Walking skeleton, end to end: `POST /engagements` runs a scope-gated scan through the
+  `security_headers` adapter (discovered as an entry-point plugin), normalizes the
+  results into Findings sealed with SHA-256, and persists them to PostgreSQL via
+  SQLModel and Alembic. Findings are readable as a list, an HTML report, and a Next.js
+  Server Component page. Scans run inline; there is no job queue yet.
+- Scoped HTTP egress boundary — `provx_sdk.fetch.fetch_within_scope`, the single outbound
+  HTTP path, which re-checks engagement scope on every redirect hop (PX-EGRESS).
+- Scan-time safety gate in `backend/app/services/safety.py`, enforcing the org-wide
+  `SAFE_MODE`, the engagement's `mode`, and the adapter's `safety` class before any
+  adapter runs (PX-ACTIVE).
+- Lab targets for the accuracy harness: a vulnerable target (`lab/positive`) and a clean
+  one (`lab/clean`), with `lab/expected.yml` populated as the scoring oracle.
 
 ### Changed
 
@@ -49,7 +61,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `packages/adapters/`.
 - Promoted the `dco`, `lint` (ruff), and `types` (mypy, strict) CI gates from stubs to
   real checks on `backend/` and `packages/` (root `ruff.toml` + `mypy.ini`); the existing
-  scaffold passes them cleanly. `accuracy` and `secrets-deps` remain stubs until lab
-  content and tools are wired.
+  scaffold passes them cleanly. `secrets-deps` remains a stub until the tools are wired.
+- Promoted `accuracy` from a stub to a real gate: it scores TP/FP/FN with `lab/harness.py`
+  against the vulnerable (`lab/positive`) and clean (`lab/clean`) targets, and fails the
+  build on a regression.
+- Scoped the CI triggers to the paths each gate covers and added a concurrency group so
+  superseded runs on the same ref are cancelled.
 
-[Unreleased]: https://github.com/darkusolomon1/provx/commits/main
+### Fixed
+
+- Redirects escaped engagement scope: only the initial URL was checked, so a redirect
+  could send a request to an out-of-scope host. Scope is now re-checked on every hop
+  (PX-SCOPE, PX-EGRESS).
+- `SAFE_MODE` was inert — the setting was read and then discarded, so it appeared wired
+  while enforcing nothing. It is now enforced at the scan gate.
+- Evidence is attributed to the adapter that produced it, rather than to the engagement.
+- Scans against dangerous or overly broad target ranges are denied.
+- Stripped leaked local filesystem paths from the CI workflow definitions.
+
+[Unreleased]: https://github.com/provx-sec/provx/commits/main

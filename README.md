@@ -67,7 +67,7 @@ See [`RESPONSIBLE_USE.md`](RESPONSIBLE_USE.md) before running Provx against anyt
 > Requires [Docker](https://docs.docker.com/get-docker/) and Docker Compose.
 
 ```bash
-git clone <your-fork-url> provx
+git clone https://github.com/provx-sec/provx.git
 cd provx
 cp .env.example .env        # then edit values as needed
 docker compose up --build
