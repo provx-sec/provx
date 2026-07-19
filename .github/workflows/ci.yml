@@ -208,3 +208,25 @@ jobs:
     steps:
       - name: gitleaks / pip-audit / npm audit / license check (stub)
         run: echo "[stub] secrets-deps - gitleaks on diff, pip-audit + npm audit, and an SPDX license-compatibility check enforcing PX-FREE (free/OSS Apache-compatible deps only) once real dependencies exist."
+
+  # ---------------------------------------------------------------------------
+  # The single required check for branch protection. Runs unconditionally so the
+  # path-filtered gates above still yield a status when they skip - GitHub never
+  # reports on a skipped job, so requiring them directly leaves a docs-only PR
+  # waiting on a check that will never arrive. Skipped counts as OK; only a real
+  # failure or a cancellation blocks the merge.
+  # ---------------------------------------------------------------------------
+  ci-required:
+    if: always()
+    needs: [dco, backend-lint, backend-types, unit-fixtures, accuracy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert no upstream gate failed
+        run: |
+          results='${{ join(needs.*.result, ' ') }}'
+          echo "gate results: $results"
+          for r in $results; do
+            case "$r" in
+              failure|cancelled) echo "::error::a required gate reported $r"; exit 1 ;;
+            esac
+          done
