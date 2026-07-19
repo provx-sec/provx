@@ -106,4 +106,4 @@ please do not open a public issue.
 
 ## License
 
-[Apache-2.0](LICENSE) — Copyright 2026 Solomon Nii Amu Darku. See [`NOTICE`](NOTICE).
+[Apache-2.0](LICENSE) — Copyright 2026 Solomon Nii Amu Darku ("SNAD"). See [`NOTICE`](NOTICE).

@@ -7,7 +7,7 @@ for the current stage and will evolve with the project.
 ## Project stage
 
 Provx is an early-stage, open-core project. Today it is maintained by a single
-maintainer (**Solomon Nii Amu Darku**, [@darkusolomon1](mailto:darkusolomon1@gmail.com)).
+maintainer (**Solomon Nii Amu Darku** — "SNAD", [@darkusolomon1](mailto:darkusolomon1@gmail.com)).
 The model below is designed so it can grow into a multi-maintainer project without
 re-litigating the basics.
 
