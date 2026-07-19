@@ -1,0 +1,9 @@
+# Provx funding configuration.
+# Uncomment and fill in the handles once the corresponding accounts exist, so the
+# "Sponsor" button appears on GitHub. See:
+# https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# github: [darkusolomon1]          # GitHub Sponsors username(s)
+# open_collective: provx           # Open Collective slug
+# ko_fi:                           # Ko-fi username
+# custom: ["https://example.com/donate"]

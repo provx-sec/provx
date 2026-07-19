@@ -1,0 +1,72 @@
+name: New tool adapter / use-case
+description: Propose wrapping an external tool or adding a detection use-case.
+title: "adapter: <tool or use-case name>"
+labels: ["type:adapter", "needs-fixture", "needs-accuracy-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Adapters extend Provx **without touching the core**. See the adapter cookbook in
+        [CONTRIBUTING.md](https://github.com/darkusolomon1/provx/blob/main/CONTRIBUTING.md#4-adapter-cookbook--add-a-tool-in-one-place).
+        A fixture test and an accuracy plan are **required** before this can merge.
+  - type: input
+    id: name
+    attributes:
+      label: Tool / use-case name
+      placeholder: e.g. "katana (crawl)" or "graphql_introspection"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / module
+      options: [web, api, infra-ad, ai, report, core]
+    validations:
+      required: true
+  - type: dropdown
+    id: safety
+    attributes:
+      label: Safety class
+      description: "Intrusive (△) checks run only in Active mode."
+      options: [passive, intrusive]
+    validations:
+      required: true
+  - type: input
+    id: tool
+    attributes:
+      label: External tool wrapped (if any)
+      description: Binary name + upstream project + license.
+      placeholder: e.g. "httpx (ProjectDiscovery, MIT)"
+  - type: textarea
+    id: what
+    attributes:
+      label: What does it detect / do?
+      description: The vulnerability class or capability, and expected findings.
+    validations:
+      required: true
+  - type: textarea
+    id: mapping
+    attributes:
+      label: Findings mapping
+      description: Expected severity/CVSS range and ≥1 MITRE ATT&CK technique.
+    validations:
+      required: true
+  - type: textarea
+    id: accuracy
+    attributes:
+      label: How will accuracy be tested?
+      description: Which lab target(s) and the expected findings (the expected.yml case).
+      placeholder: "Positive: OWASP Juice Shop endpoint X → expect finding Y. Negative: clean baseline → expect none."
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Contributor commitments
+      options:
+        - label: I will include a fixture test (raw tool output → expected findings).
+          required: true
+        - label: I will add/point to a lab case so the accuracy gate can verify it.
+          required: true
+        - label: This feature is for authorized/defensive use and respects the Safety Contract.
+          required: true

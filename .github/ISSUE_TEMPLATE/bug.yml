@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a reproducible defect in Provx.
+title: "bug: <short description>"
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please search existing issues first.
+        For questions, use [Discussions](https://github.com/darkusolomon1/provx/discussions).
+        For security vulnerabilities, follow [SECURITY.md](https://github.com/darkusolomon1/provx/security/policy) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and its impact.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps, commands, and configuration.
+      placeholder: |
+        1. Run `docker compose up`
+        2. Create an engagement with scope ...
+        3. Start a scan with ...
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / evidence
+      description: Relevant log output. **Redact any secrets, tokens, or target data.**
+      render: shell
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [core, web, api, infra-ad, ai, report, platform-sec, docs, ci, unsure]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Git commit SHA or release tag.
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Docker version, browser (if UI), deployment details.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is a bug in Provx itself, not a question or a target/network issue.
+          required: true
+        - label: I have redacted secrets and any non-authorized target data from this report.
+          required: true

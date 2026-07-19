@@ -1,0 +1,18 @@
+[project]
+name = "provx-adapters"
+version = "0.0.0"
+description = "Provx tool adapters — pluggable wrappers that normalize external security tools into Findings."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Solomon Nii Amu Darku" }]
+dependencies = []
+
+# Adapters are auto-discovered via entry points in this group. Each adapter registers
+# itself here so the core can load it without any core edits (see README.md).
+[project.entry-points."provx.adapters"]
+# example = "provx_adapters.example:ExampleAdapter"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

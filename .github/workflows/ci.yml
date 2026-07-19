@@ -1,0 +1,133 @@
+name: ci
+
+# Path-filtered CI skeleton.
+#
+# Every gate below is a PASSING NO-OP for now — the real commands land as features do.
+# The `changes` job computes which parts of the monorepo a PR touched, and each gate
+# runs ONLY for the relevant paths (backend changes run backend gates, etc.), so an
+# unrelated change doesn't pay for every gate.
+#
+# NOTE: making these gates *required* for merge needs branch protection on `main`,
+# which is configured on GitHub (out of scope for the initial local scaffold).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Detect which areas changed so downstream gates can path-filter themselves.
+  # ---------------------------------------------------------------------------
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      adapters: ${{ steps.filter.outputs.adapters }}
+      client: ${{ steps.filter.outputs.client }}
+      lab: ${{ steps.filter.outputs.lab }}
+      ci: ${{ steps.filter.outputs.ci }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            adapters:
+              - 'packages/adapters/**'
+            client:
+              - 'packages/client/**'
+            lab:
+              - 'lab/**'
+            ci:
+              - '.github/workflows/**'
+
+  # ---------------------------------------------------------------------------
+  # Gate 1 — DCO: every commit must be signed off. Runs on every PR.
+  # ---------------------------------------------------------------------------
+  dco:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Signed-off-by (stub)
+        run: echo "[stub] DCO check — verify every commit has a Signed-off-by trailer."
+
+  # ---------------------------------------------------------------------------
+  # Gate 2 — Lint (ruff/black for Python, eslint/prettier for frontend).
+  # ---------------------------------------------------------------------------
+  backend-lint:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.adapters == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: ruff / black (stub)
+        run: echo "[stub] backend lint — ruff check + format --check on backend/ and packages/adapters/."
+
+  frontend-lint:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.client == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: eslint / prettier (stub)
+        run: echo "[stub] frontend lint — eslint + prettier --check on frontend/ and packages/client/."
+
+  # ---------------------------------------------------------------------------
+  # Gate 3 — Type check (mypy for Python, tsc for TypeScript).
+  # ---------------------------------------------------------------------------
+  backend-types:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.adapters == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: mypy (stub)
+        run: echo "[stub] backend types — mypy on backend/ and packages/adapters/."
+
+  frontend-types:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.client == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: tsc (stub)
+        run: echo "[stub] frontend types — tsc --noEmit on frontend/ and packages/client/."
+
+  # ---------------------------------------------------------------------------
+  # Gate 4 — Unit + parser fixtures (adapter output → expected findings).
+  # ---------------------------------------------------------------------------
+  unit-fixtures:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.adapters == 'true' || needs.changes.outputs.lab == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: pytest fixtures (stub)
+        run: echo "[stub] unit + fixture tests — pytest; each adapter ships raw-output → expected-findings fixtures."
+
+  # ---------------------------------------------------------------------------
+  # Gate 5 — Accuracy harness: score TP/FP/FN vs lab/expected.yml; fail on new FP/FN.
+  # ---------------------------------------------------------------------------
+  accuracy:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.adapters == 'true' || needs.changes.outputs.lab == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: accuracy gate (stub)
+        run: echo "[stub] accuracy — run checks vs lab benchmark, score TP/FP/FN, fail new false positives or regressions."
+
+  # ---------------------------------------------------------------------------
+  # Gate 6 — Secret scanning + dependency & license audit. Runs on every PR.
+  # ---------------------------------------------------------------------------
+  secrets-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: gitleaks / pip-audit / npm audit / license check (stub)
+        run: echo "[stub] secrets-deps — gitleaks on diff, pip-audit + npm audit, and an SPDX license-compatibility check."

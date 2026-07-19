@@ -1,0 +1,60 @@
+name: Feature request
+description: Propose a new capability or improvement (not a new tool adapter — use that form).
+title: "feat: <short description>"
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Proposing a new **tool adapter or detection use-case**? Use the
+        "New tool adapter / use-case" form instead. Every feature must serve the
+        four principles in [ROADMAP.md](https://github.com/darkusolomon1/provx/blob/main/docs/ROADMAP.md) §1.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What real problem does this solve? Who is it for?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should Provx do? How would a user interact with it?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How do we know it's done? (Feeds the Definition of Ready.)
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [core, web, api, infra-ad, ai, report, platform-sec, docs, ci]
+    validations:
+      required: true
+  - type: dropdown
+    id: safety
+    attributes:
+      label: Safety classification
+      description: Does this involve any check that touches a target?
+      options: [not applicable, passive, intrusive]
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and discussions for this idea.
+          required: true
+        - label: This serves a real user need, not a checkbox for attention (ROADMAP §1).
+          required: true

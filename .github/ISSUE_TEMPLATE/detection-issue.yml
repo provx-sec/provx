@@ -1,0 +1,69 @@
+name: Detection issue (false positive / false negative)
+description: Report that a check flagged something it shouldn't (FP) or missed a real vuln (FN).
+title: "detection: <check> <FP|FN> on <target>"
+labels: ["type:bug", "needs-accuracy-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Detection accuracy is the heart of Provx. Every confirmed FP becomes a
+        suppression **and** a regression test; every confirmed FN becomes a new lab
+        case + check. See [VALIDATION_and_REFERENCE_SYSTEMS.md](https://github.com/darkusolomon1/provx/blob/main/docs/VALIDATION_and_REFERENCE_SYSTEMS.md).
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Type of detection issue
+      options:
+        - False positive (flagged something that isn't a real vuln)
+        - False negative (missed a real vuln)
+    validations:
+      required: true
+  - type: input
+    id: check
+    attributes:
+      label: Check / use-case / adapter
+      placeholder: e.g. "cors" or "nuclei template CVE-2024-xxxx"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / module
+      options: [web, api, infra-ad, ai, report, core]
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What was reported vs. what is actually true
+      description: For an FP, why is the finding wrong? For an FN, what should have been found?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Raw request/response, tool output, or the rule/template that matched. **Redact secrets.**
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: labcase
+    attributes:
+      label: Reproducible lab target (if possible)
+      description: A target we can add to lab/ with an expected.yml so this is covered forever.
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: The target was one I am authorized to test, and I have redacted sensitive data.
+          required: true
+        - label: I searched existing issues for this detection problem.
+          required: true
