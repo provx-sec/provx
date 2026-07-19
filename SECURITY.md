@@ -24,8 +24,9 @@ that receive security fixes.
 
 Instead, report privately using either:
 
-1. **GitHub private vulnerability reporting** — the preferred channel once the repo is
-   on GitHub: *Security → Report a vulnerability* (GitHub Security Advisories).
+1. **GitHub private vulnerability reporting** — the preferred channel:
+   [*Security → Report a vulnerability*](https://github.com/provx-sec/provx/security/advisories/new)
+   (GitHub Security Advisories).
 2. **Email** — <darkusolomon1@gmail.com> with subject `SECURITY: Provx`.
 
 Please include, as far as you can:

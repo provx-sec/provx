@@ -3,7 +3,7 @@ name: x-check
 # provx rule check — runs on PR + push, blocks merges with critical violations.
 #
 # This file is deployed by .claude/scripts/install-workflows.sh.
-# Source of truth: /Users/mac/Projects/mine/provx/.claude/workflows/x-check.yml
+# Source of truth: .claude/workflows/x-check.yml
 # To update: edit the source, then re-run install-workflows.sh all --force, then commit + push the changes.
 #
 # Bypass: not possible from CI. To bypass locally, use git commit --no-verify (which the precommit
@@ -22,11 +22,16 @@ on:
       - production
       - staging
       - development
-      - dev-snad
 
 permissions:
   contents: read
   pull-requests: write  # required to post PR comments
+
+# Matches ci.yml's policy: a rapid follow-up push supersedes the in-flight run rather
+# than queueing a second one. Distinct prefix so it never collides with the ci- group.
+concurrency:
+  group: x-check-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   rule-check:

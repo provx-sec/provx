@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# x-precommit.sh - stitchub critical-rule pre-commit hook
+# x-precommit.sh - provx critical-rule pre-commit hook
 #
-# Source of truth: /Users/mac/Projects/mine/stitchub/.claude/scripts/x-precommit.sh
+# Source of truth: .claude/scripts/x-precommit.sh
 # Deployed via:    bash .claude/scripts/install-hooks.sh <repo>
 #
 # Enforces the BLOCKING critical rules from .claude/rules.md.
@@ -45,7 +45,7 @@ CI_BASE_REF=""
 
 print_help() {
     cat <<EOF
-${BOLD}x-precommit.sh${NC} - stitchub critical-rule pre-commit hook
+${BOLD}x-precommit.sh${NC} - provx critical-rule pre-commit hook
 
 ${BOLD}Usage:${NC}
     bash x-precommit.sh                  Run check on staged files (default = precommit mode)
@@ -61,7 +61,7 @@ ${BOLD}Modes:${NC}
 
 ${BOLD}As a git hook:${NC}
     Installed as .git/hooks/pre-commit via:
-    bash /Users/mac/Projects/mine/stitchub/.claude/scripts/install-hooks.sh <repo>
+    bash .claude/scripts/install-hooks.sh <repo>
 
 ${BOLD}As a GitHub Action:${NC}
     Called by .github/workflows/x-check.yml as: bash .github/scripts/x-precommit.sh --ci origin/main
@@ -99,7 +99,7 @@ ${YELLOW}🟡 WARNINGS (don't block, just flag):${NC}
   Q-07  FormData.fromMap (verify no un-awaited Futures)
   S-13  Raw error.message / toString() leaked to user (Node, Flutter, React)
 
-For full rule details: /Users/mac/Projects/mine/stitchub/.claude/rules.md
+For full rule details: .claude/rules.md
 EOF
 }
 
