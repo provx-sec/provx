@@ -8,7 +8,7 @@ body:
       value: |
         Detection accuracy is the heart of Provx. Every confirmed FP becomes a
         suppression **and** a regression test; every confirmed FN becomes a new lab
-        case + check. See [VALIDATION_and_REFERENCE_SYSTEMS.md](https://github.com/darkusolomon1/provx/blob/main/docs/VALIDATION_and_REFERENCE_SYSTEMS.md).
+        case + check. See [VALIDATION_and_REFERENCE_SYSTEMS.md](https://github.com/provx-sec/provx/blob/main/docs/VALIDATION_and_REFERENCE_SYSTEMS.md).
   - type: dropdown
     id: kind
     attributes:
