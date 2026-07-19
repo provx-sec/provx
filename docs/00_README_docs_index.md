@@ -34,6 +34,7 @@
 | `PROVX_RULES.md` | **Canonical source of the PX safety/engineering rules.** Cite by ID; mirrored into `.claude/rules.md` | current |
 | `PLAYBOOK_SCHEMA.md` | The deterministic playbook YAML schema | current |
 | `KNOWN_ISSUES.md` | Defects and residual risks that are known, reproduced, and deliberately deferred — the counterpart to [`../audits/`](../audits/) | current |
+| `TRADEMARK.md` | What was checked on the "Provx" mark, the risk accepted rather than resolved, and what forces a re-check | current |
 
 ## Precedence when docs disagree
 
