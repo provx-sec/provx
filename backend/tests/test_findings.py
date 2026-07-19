@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime
 
 import pytest
@@ -23,7 +24,7 @@ from app.services.retest import retest
 
 def _finding(**overrides: object) -> Finding:
     base: dict[str, object] = {
-        "id": "PVX-0001",
+        "display_id": "PVX-0001",
         "title": "Missing security headers",
         "target": "https://example.test",
         "module": Module.WEB,
@@ -35,12 +36,25 @@ def _finding(**overrides: object) -> Finding:
 
 def test_finding_defaults() -> None:
     f = _finding()
+    assert isinstance(f.id, uuid.UUID)  # auto-generated UUID primary key
+    assert f.display_id == "PVX-0001"  # per-engagement human label
     assert f.status is FindingStatus.NEW
     assert f.confidence is Confidence.MEDIUM
     assert f.cvss is None
     assert f.epss is None
     assert f.attack_techniques == []
     assert f.evidence is None
+
+
+def test_finding_id_is_unique_per_instance() -> None:
+    assert _finding().id != _finding().id
+
+
+def test_display_id_is_required() -> None:
+    with pytest.raises(ValidationError):
+        Finding(  # type: ignore[call-arg]
+            title="x", target="y", module=Module.WEB, severity=Severity.LOW
+        )
 
 
 def test_finding_full_record() -> None:

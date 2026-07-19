@@ -1,0 +1,8 @@
+# Root ruff config for the Provx monorepo. Applies to any Python file that doesn't have a
+# nearer config (e.g. packages/). backend/pyproject.toml carries the same settings so both
+# trees lint and format identically.
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -15,7 +15,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from provx_adapters.playbook import Playbook, PlaybookValidationError
+from provx_sdk.playbook import Playbook, PlaybookValidationError
 
 
 def load_playbook(path: str | Path) -> Playbook:

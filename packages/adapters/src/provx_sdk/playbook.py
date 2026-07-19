@@ -10,6 +10,13 @@ schema; ``loader.py`` reads YAML into them.
 Scaffolding boundary: the ``when`` / ``if`` expression strings are stored verbatim and are
 NOT parsed or evaluated here. There is no execution engine yet — this module only models
 and validates playbook structure. No AI is involved anywhere in this path.
+
+SECURITY — rule PX-DSL (see docs/PROVX_RULES.md): when the evaluator is built, it MUST be a
+restricted, allowlisted evaluator. ``eval()`` / ``exec()`` and any equivalent dynamic code
+execution are FORBIDDEN — evaluating an untrusted playbook expression with them is a remote
+code execution hole. The planned design is a fixed operator set (comparisons + boolean
+``and``/``or``/``not``) over a known **facts namespace** only: no function calls, no
+attribute traversal beyond whitelisted facts, no imports.
 """
 
 from __future__ import annotations

@@ -22,6 +22,9 @@ Before contributing offensive tooling, also read
 - **Semantic Versioning** (`MAJOR.MINOR.PATCH`).
 - **Open or claim an issue first** for anything non-trivial, so work isn't duplicated
   and scope/safety are agreed up front.
+- **Project rules (PX).** Every contribution must satisfy the hard safety & engineering
+  rules in [`docs/PROVX_RULES.md`](docs/PROVX_RULES.md) — e.g. `PX-DSL` (no `eval`/`exec`
+  in the playbook engine), `PX-SCOPE`, `PX-AI-OPTIONAL`. Cite them by ID in reviews.
 
 ---
 

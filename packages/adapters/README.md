@@ -1,6 +1,7 @@
-# provx-adapters
+# provx-sdk
 
-Provx's **deterministic plugin SDK**. It defines the two plugin types that extend Provx
+Provx's **deterministic plugin SDK** (distribution name `provx-sdk`, import package
+`provx_sdk`; it lives in `packages/adapters/`). It defines the two plugin types that extend Provx
 **without touching the core**, both discovered via entry-point groups:
 
 1. **Tool adapters** (`provx.adapters`) — wrap one external security tool (e.g. `nuclei`,
@@ -12,16 +13,16 @@ Provx's **deterministic plugin SDK**. It defines the two plugin types that exten
 Both plugin types are deterministic and auditable. **No AI lives here** — AI is an
 optional advisor layered on elsewhere, off by default.
 
-> **Status: scaffolding.** The playbook models (`provx_adapters.playbook`) and
-> loader/validator (`provx_adapters.loader`) exist and are tested. The tool-adapter base
-> class is an interface stub (`provx_adapters.plugins.ToolAdapter`); the `Finding` model,
+> **Status: scaffolding.** The playbook models (`provx_sdk.playbook`) and
+> loader/validator (`provx_sdk.loader`) exist and are tested. The tool-adapter base
+> class is an interface stub (`provx_sdk.plugins.ToolAdapter`); the `Finding` model,
 > the starter adapter template, and the execution engine land with the walking skeleton.
 
 ## Layout
 
-```
+```text
 packages/adapters/
-├── src/provx_adapters/
+├── src/provx_sdk/
 │   ├── plugins.py    # ToolAdapter + PlaybookPlugin interface stubs
 │   ├── playbook.py   # Pydantic playbook schema (models)
 │   └── loader.py     # load + validate playbook YAML (no engine)

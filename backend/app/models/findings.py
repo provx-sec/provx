@@ -15,13 +15,14 @@ deliberately limited to Pydantic + stdlib so the models stay dependency-light.
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Finding severity band."""
 
     INFO = "info"
@@ -31,7 +32,7 @@ class Severity(str, Enum):
     CRITICAL = "critical"
 
 
-class Confidence(str, Enum):
+class Confidence(StrEnum):
     """How sure the deterministic engine is. Low-confidence findings can be filtered so
     noise is opt-in (see docs/VALIDATION_and_REFERENCE_SYSTEMS.md §1)."""
 
@@ -40,7 +41,7 @@ class Confidence(str, Enum):
     LOW = "low"
 
 
-class Module(str, Enum):
+class Module(StrEnum):
     """Which test module produced the finding."""
 
     WEB = "web"
@@ -48,7 +49,7 @@ class Module(str, Enum):
     INFRA = "infra"
 
 
-class FindingStatus(str, Enum):
+class FindingStatus(StrEnum):
     """The human-in-the-loop validation lifecycle. The machine proposes; a human confirms
     (see docs/VALIDATION_and_REFERENCE_SYSTEMS.md §1)."""
 
@@ -78,14 +79,22 @@ class Evidence(BaseModel):
 class Finding(BaseModel):
     """A single normalized finding.
 
-    ``id`` uses a stable, human-readable convention (placeholder ``PVX-0001``). CVSS is on
-    a 0-10 scale; EPSS is an optional 0-1 probability of real-world exploitation used for
-    deterministic prioritization.
+    Two identifiers, deliberately separate:
+
+    * ``id`` — a UUID, the stable database primary key. Globally unique, never reused.
+    * ``display_id`` — the human-facing label shown in the UI and reports (e.g.
+      ``PVX-0001``). It is numbered **per engagement** (4-digit zero-pad) and resets for
+      each engagement, so two engagements can both have a ``PVX-0001``. The per-engagement
+      sequence is assigned by the findings pipeline (later phase), not globally.
+
+    CVSS is on a 0-10 scale; EPSS is an optional 0-1 probability of real-world exploitation
+    used for deterministic prioritization.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    display_id: str
     title: str
     target: str
     module: Module
@@ -94,8 +103,9 @@ class Finding(BaseModel):
     epss: float | None = Field(default=None, ge=0.0, le=1.0)
     confidence: Confidence = Confidence.MEDIUM
     status: FindingStatus = FindingStatus.NEW
-    # MITRE ATT&CK technique IDs (e.g. "T1190"). Named `attack_techniques` because `att&ck`
-    # is not a valid identifier. At least one is expected once a finding is finalized.
+    # MITRE ATT&CK technique IDs (e.g. "T1190"). Stored as plain strings; "MITRE ATT&CK" is
+    # only ever a display label, never an identifier. Named `attack_techniques` because
+    # `att&ck` is not a valid identifier. At least one is expected once a finding is final.
     attack_techniques: list[str] = Field(default_factory=list)
     evidence: Evidence | None = None
     remediation: str | None = None
@@ -107,6 +117,8 @@ class RiskAcceptance(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    # References a Finding. Kept as a string for now; the pipeline decides whether it holds
+    # the UUID `Finding.id` or the human `display_id` when the DB layer lands.
     finding_id: str
     owner: str
     reason: str

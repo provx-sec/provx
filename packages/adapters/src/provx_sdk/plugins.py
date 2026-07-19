@@ -50,7 +50,7 @@ class ToolAdapter(Protocol):
 @runtime_checkable
 class PlaybookPlugin(Protocol):
     """A deterministic playbook, discoverable as a plugin (entry-point group
-    ``provx.playbooks``). The concrete model is ``provx_adapters.playbook.Playbook``."""
+    ``provx.playbooks``). The concrete model is ``provx_sdk.playbook.Playbook``."""
 
     #: Unique playbook name, e.g. "web-baseline".
     workflow: str

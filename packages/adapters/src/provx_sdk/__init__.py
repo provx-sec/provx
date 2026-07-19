@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Solomon Nii Amu Darku
 """
-provx_adapters — Provx's deterministic plugin SDK.
+provx_sdk — Provx's deterministic plugin SDK.
 
 This package defines the two plugin types that extend Provx WITHOUT touching the core:
 
@@ -17,7 +17,7 @@ Scaffolding status: models and the playbook loader/validator exist; the executio
 does not.
 """
 
-from provx_adapters.playbook import (
+from provx_sdk.playbook import (
     DiscoveryRule,
     Playbook,
     PlaybookValidationError,

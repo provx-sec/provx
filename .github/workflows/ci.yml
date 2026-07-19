@@ -55,13 +55,38 @@ jobs:
               - '.github/workflows/**'
 
   # ---------------------------------------------------------------------------
-  # Gate 1 — DCO: every commit must be signed off. Runs on every PR.
+  # Gate 1 — DCO: every commit in the change range must carry a Signed-off-by trailer.
   # ---------------------------------------------------------------------------
   dco:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify Signed-off-by (stub)
-        run: echo "[stub] DCO check — verify every commit has a Signed-off-by trailer."
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify Signed-off-by on every commit
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            # push: check the newly pushed commits; fall back to the last commit.
+            before="${{ github.event.before }}"
+            if [ -n "$before" ] && git cat-file -e "$before^{commit}" 2>/dev/null; then
+              range="$before..${{ github.sha }}"
+            else
+              range="HEAD~1..HEAD"
+            fi
+          fi
+          echo "Checking commits in range: $range"
+          missing=0
+          for sha in $(git rev-list "$range"); do
+            if ! git show -s --format=%B "$sha" | grep -qE '^Signed-off-by: .+ <.+@.+>'; then
+              echo "::error::commit $sha is missing a Signed-off-by trailer (use git commit -s)"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          echo "All commits are signed off."
 
   # ---------------------------------------------------------------------------
   # Gate 2 — Lint (ruff/black for Python, eslint/prettier for frontend).
@@ -71,8 +96,16 @@ jobs:
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.adapters == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: ruff / black (stub)
-        run: echo "[stub] backend lint — ruff check + format --check on backend/ and packages/adapters/."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      - name: ruff check
+        run: ruff check backend packages/adapters
+      - name: ruff format --check
+        run: ruff format --check backend packages/adapters
 
   frontend-lint:
     needs: changes
@@ -90,8 +123,14 @@ jobs:
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.adapters == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: mypy (stub)
-        run: echo "[stub] backend types — mypy on backend/ and packages/adapters/."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install mypy + typed deps
+        run: pip install mypy pydantic types-PyYAML fastapi
+      - name: mypy (strict)
+        run: mypy backend/app packages/adapters/src/provx_sdk
 
   frontend-types:
     needs: changes

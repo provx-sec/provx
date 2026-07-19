@@ -26,8 +26,8 @@ and auditable**, not delegated to a non-deterministic AI agent.
 
 The playbook schema is documented in
 [`../docs/PLAYBOOK_SCHEMA.md`](../docs/PLAYBOOK_SCHEMA.md). It is **enforced** by the
-Pydantic models in `provx_adapters.playbook`, loaded and validated by
-`provx_adapters.loader` (in [`../packages/adapters/`](../packages/adapters/)).
+Pydantic models in `provx_sdk.playbook`, loaded and validated by
+`provx_sdk.loader` (in [`../packages/adapters/`](../packages/adapters/)).
 
 > **Status: scaffolding.** Playbooks load and validate today. The engine that *evaluates*
 > the `when` / `if` expressions and runs steps is added in a later phase — no execution

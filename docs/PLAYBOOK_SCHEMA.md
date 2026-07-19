@@ -6,13 +6,20 @@ rules (see [`DETERMINISTIC_CORE_and_NonAI_Strengths.md`](DETERMINISTIC_CORE_and_
 checks to run next — no AI involved.
 
 This document is the human-readable schema. It is **enforced** by the Pydantic models in
-`provx_adapters.playbook` and loaded/validated by `provx_adapters.loader`. If this doc and
+`provx_sdk.playbook` and loaded/validated by `provx_sdk.loader`. If this doc and
 the models ever disagree, the models are authoritative.
 
 > **Scaffolding status:** playbooks currently *load and validate*. The engine that
 > *evaluates* the `when` / `if` expression strings and executes steps is not implemented
 > yet. Expressions are stored verbatim as opaque strings; validation only checks structure
 > and that expressions are non-empty.
+>
+> **SECURITY — rule [PX-DSL](PROVX_RULES.md) (no-eval):** when the evaluator is built it
+> **MUST** be a restricted, allowlisted evaluator. `eval()` / `exec()` and any equivalent
+> dynamic code execution are **FORBIDDEN** — running an untrusted playbook expression
+> through them is a remote-code-execution hole. The design is a fixed operator set
+> (comparisons plus boolean `and` / `or` / `not`) over a known **facts namespace** only:
+> no function calls, no attribute traversal beyond whitelisted facts, no imports.
 
 ## Top-level fields
 

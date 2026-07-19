@@ -7,9 +7,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-from provx_adapters.loader import find_workflows_dir, load_playbook
-from provx_adapters.playbook import Playbook, PlaybookValidationError
+from provx_sdk.loader import find_workflows_dir, load_playbook
+from provx_sdk.playbook import Playbook, PlaybookValidationError
 
 
 def _web_baseline_path() -> Path:
@@ -36,16 +35,14 @@ def test_web_baseline_parses() -> None:
 def test_missing_required_field_raises(tmp_path: Path) -> None:
     # A discovery rule with no `run` list violates the schema.
     bad = tmp_path / "bad.yaml"
-    bad.write_text("workflow: bad\non_discovery:\n  - when: \"x == true\"\n", encoding="utf-8")
+    bad.write_text('workflow: bad\non_discovery:\n  - when: "x == true"\n', encoding="utf-8")
     with pytest.raises(PlaybookValidationError):
         load_playbook(bad)
 
 
 def test_empty_workflow_name_raises(tmp_path: Path) -> None:
     bad = tmp_path / "bad.yaml"
-    bad.write_text(
-        "workflow: '   '\non_discovery:\n  - when: x\n    run: [a]\n", encoding="utf-8"
-    )
+    bad.write_text("workflow: '   '\non_discovery:\n  - when: x\n    run: [a]\n", encoding="utf-8")
     with pytest.raises(PlaybookValidationError):
         load_playbook(bad)
 
