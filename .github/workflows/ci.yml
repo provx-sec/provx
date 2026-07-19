@@ -102,15 +102,22 @@ jobs:
         run: echo "[stub] frontend types — tsc --noEmit on frontend/ and packages/client/."
 
   # ---------------------------------------------------------------------------
-  # Gate 4 — Unit + parser fixtures (adapter output → expected findings).
+  # Gate 4 — Unit + parser fixtures. Runs the Finding-model and playbook-loader tests.
+  # (Real gate. lint/types remain stubs, so ruff/mypy don't run here yet.)
   # ---------------------------------------------------------------------------
   unit-fixtures:
     needs: changes
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.adapters == 'true' || needs.changes.outputs.lab == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: pytest fixtures (stub)
-        run: echo "[stub] unit + fixture tests — pytest; each adapter ships raw-output → expected-findings fixtures."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: pip install pydantic pyyaml pytest
+      - name: Run unit + fixture tests
+        run: pytest -q
 
   # ---------------------------------------------------------------------------
   # Gate 5 — Accuracy harness: score TP/FP/FN vs lab/expected.yml; fail on new FP/FN.
@@ -121,7 +128,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: accuracy gate (stub)
-        run: echo "[stub] accuracy — run checks vs lab benchmark, score TP/FP/FN, fail new false positives or regressions."
+        run: echo "[stub] accuracy — score checks vs lab/expected.yml (TP/FP/FN); fail new false positives or regressions. Green on an empty ruleset."
 
   # ---------------------------------------------------------------------------
   # Gate 6 — Secret scanning + dependency & license audit. Runs on every PR.

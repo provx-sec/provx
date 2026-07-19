@@ -1,18 +1,37 @@
 [project]
 name = "provx-adapters"
 version = "0.0.0"
-description = "Provx tool adapters — pluggable wrappers that normalize external security tools into Findings."
+description = "Provx deterministic plugin SDK — tool adapters and playbooks that extend Provx without core edits."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Solomon Nii Amu Darku" }]
-dependencies = []
+dependencies = [
+    "pydantic>=2",
+    "pyyaml>=6",
+]
 
-# Adapters are auto-discovered via entry points in this group. Each adapter registers
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+]
+
+# Tool adapters are auto-discovered via this entry-point group. Each adapter registers
 # itself here so the core can load it without any core edits (see README.md).
 [project.entry-points."provx.adapters"]
 # example = "provx_adapters.example:ExampleAdapter"
 
+# Deterministic playbooks (the "brain") are discovered via this group, alongside adapters.
+[project.entry-points."provx.playbooks"]
+# web_baseline = "provx_adapters.playbook:Playbook"  # loaded from workflows/*.yaml
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/provx_adapters"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

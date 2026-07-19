@@ -1,37 +1,39 @@
-# PenForge (Local Clone) — Complete Build Blueprint
+# Provx — Complete Build Blueprint
 
-**Automated Security Validation (ASV) / Automated Penetration-Testing Platform**
-*One-stop platform for web, API, and internal-infrastructure testing, with an AI engine, safe operating modes, approval-gated exploitation, and client-ready reporting.*
+**Governed automated security validation — web, API & infra in one console.**
+*Deterministic and auditable at the core; safe operating modes; approval-gated exploitation; client-ready reporting. AI is an **optional** advisor, never required.*
 
-> **Purpose of this document.** A top-to-bottom feature and architecture plan for building a local, internal-use clone of the observed reference tool ("PenForge" by Cynsec Solutions). It is written so nothing is missed during the build. Everything is split into **OBSERVED** (seen directly in the 27 screenshots) and **TO-BUILD / STANDARD** (not shown but expected for completeness, inferred from the tool's own descriptions and standard pentest methodology). A gap analysis at the end compares against commercial ASV platforms so you can add anything worth having.
+> **Canonical identity.** This is **Provx** (older drafts said *PenForge*/*Provex* — superseded). Read alongside `POSITIONING_and_STRATEGY.md` (how Provx differs from AI-first tools like Strix) and `DETERMINISTIC_CORE_and_NonAI_Strengths.md` (the deterministic engine is the brain; AI is optional). Where this document mentions an "AI engine/analyst/autopilot," treat it as an **optional module** per those two docs.
 >
-> **Scope note.** This is authorized/defensive tooling for your own labs and internally-owned apps. Every capability below assumes explicit authorization, in-scope targets, and the safety gates described in Section 6.
+> **Purpose.** A top-to-bottom feature and architecture map for Provx — the superset of capabilities to draw from, informed by studying a reference tool (27 screenshots) plus market analysis. Items are marked **OBSERVED** (seen in the reference) or **TO-BUILD / STANDARD** (expected for completeness). A gap analysis at the end compares against commercial ASV platforms.
+>
+> **Scope note.** Authorized/defensive tooling only. Every capability assumes explicit authorization, in-scope targets, and the safety gates in Section 6.
 
 ---
 
-## 0. What was observed (ground truth)
+## 0. Repository & baseline (canonical)
 
-Reference app: **PenForge v0.1.0**, © Cynsec Solutions Limited, tagline *"PenForge Security Validation Platform"*. Served at `localhost:8000`. Database `postgresql+psycopg`. AI backed by Anthropic Claude (`claude-sonnet-4-6`).
-
-**Left-nav sections (9):** Dashboard · Engagements · Scans · Findings · Approvals · Reports · AI Analyst · User management · Configurations.
-
-**Repository layout (from the editor view):**
+Provx ships as **one monorepo** (see `REPOSITORY_STRATEGY.md`) served locally during dev; PostgreSQL datastore; Docker Compose bring-up. AI is optional and off by default.
 
 ```
-PENFORGE/
-├── backend/            # API + scan orchestration + AI + report engine
-├── frontend/           # UI (the localhost:8000 app)
-├── data/               # DB volume / persisted state
-├── docs/               # documentation
-├── lab/                # intentionally-vulnerable target apps (learning)
+provx/
+├── backend/            # FastAPI control plane + orchestration + report engine
+├── frontend/           # Next.js UI
+├── packages/
+│   ├── adapters/       # tool-adapter plugin SDK (publishable)
+│   └── client/         # thin API client others can install standalone
+├── workflows/          # deterministic YAML playbooks (the "brain")
+├── lab/                # intentionally-vulnerable + clean targets (accuracy benchmark)
 ├── wordlists/          # discovery / fuzzing wordlists
-├── .env / .env.example
+├── docs/               # these planning docs
 ├── docker-compose.yml  # one-command bring-up
 ├── Makefile
 └── README.md
 ```
 
-**Two demo engagements** ("Vul Bank" / Vuln Bank, "Gye Nyame Bank") were used throughout, targeting a lab banking app on `192.168.20.191:2000/4000`.
+**Core sections (nav):** Dashboard · Engagements · Scans · Findings · Approvals · Reports · (optional) AI Advisor · User management · Configurations.
+
+*The feature catalog below was validated against a reference implementation; it is the menu Provx builds from, prioritized by the roadmap — not a spec to build all at once.*
 
 ---
 

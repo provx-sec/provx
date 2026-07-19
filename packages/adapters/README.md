@@ -1,13 +1,32 @@
 # provx-adapters
 
-Pluggable **tool adapters** for Provx. An adapter wraps one external security tool (for
-example `nuclei`, `httpx`, `nmap`) and normalizes its raw output into Provx `Finding`
-objects. Adapters are the primary way contributors extend Provx **without touching the
-core** — the core discovers them via the `provx.adapters` entry-point group.
+Provx's **deterministic plugin SDK**. It defines the two plugin types that extend Provx
+**without touching the core**, both discovered via entry-point groups:
 
-> **Status: Phase 1 skeleton.** The adapter base class, the `Finding` model, and the
-> starter template land with the walking skeleton. This directory currently defines the
-> package and the plugin contract so the structure is in place.
+1. **Tool adapters** (`provx.adapters`) — wrap one external security tool (e.g. `nuclei`,
+   `httpx`, `nmap`) and normalize its raw output into Provx `Finding` objects.
+2. **Playbooks** (`provx.playbooks`) — declarative YAML methodology that the deterministic
+   workflow engine evaluates to decide what to run next (the "brain"). See
+   [`../../workflows/`](../../workflows/) and [`../../docs/PLAYBOOK_SCHEMA.md`](../../docs/PLAYBOOK_SCHEMA.md).
+
+Both plugin types are deterministic and auditable. **No AI lives here** — AI is an
+optional advisor layered on elsewhere, off by default.
+
+> **Status: scaffolding.** The playbook models (`provx_adapters.playbook`) and
+> loader/validator (`provx_adapters.loader`) exist and are tested. The tool-adapter base
+> class is an interface stub (`provx_adapters.plugins.ToolAdapter`); the `Finding` model,
+> the starter adapter template, and the execution engine land with the walking skeleton.
+
+## Layout
+
+```
+packages/adapters/
+├── src/provx_adapters/
+│   ├── plugins.py    # ToolAdapter + PlaybookPlugin interface stubs
+│   ├── playbook.py   # Pydantic playbook schema (models)
+│   └── loader.py     # load + validate playbook YAML (no engine)
+└── tests/            # fixture test: loads workflows/web-baseline.yaml
+```
 
 ## The adapter contract
 

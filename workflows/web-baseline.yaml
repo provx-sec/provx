@@ -1,0 +1,26 @@
+# Provx deterministic playbook — the "brain" that decides where to go next WITHOUT AI.
+#
+# A playbook encodes pentest methodology as auditable rules the engine evaluates against
+# discovered facts (see docs/DETERMINISTIC_CORE_and_NonAI_Strengths.md §3 and the schema
+# in docs/PLAYBOOK_SCHEMA.md). This file is a worked example; the execution engine that
+# evaluates `when`/`if` expressions is NOT implemented yet — this is scaffolding only.
+#
+# Safety: steps under `active_only` never run in passive/test mode — they require an
+# engagement explicitly set to Active mode.
+
+workflow: web-baseline
+
+on_discovery:
+  - when: "service.http == true"
+    run: [fingerprint, tech_detect, security_headers, tls]
+
+  - when: "form.login_detected == true"
+    run: [csrf, cookie_flags]
+    active_only: [auth_bypass, default_creds]      # gated to Active mode
+
+  - when: "path == '/api/docs' or swagger_detected"
+    run: [api_discovery]                           # hand off to the API workflow
+
+routing:
+  - if: "finding.type == 'cors_misconfig'"
+    then_validate: [active_options_probe]          # deterministic validator

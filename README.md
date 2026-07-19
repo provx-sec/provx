@@ -12,6 +12,14 @@ security validation between your paid human pentests — without breaking anythi
 without being locked to one AI vendor. The machine proposes findings; a human always
 confirms before anything is reported as real.
 
+> **Provx runs fully without AI.** The engine is deterministic and auditable — a
+> workflow/playbook that encodes pentest methodology as reproducible rules. AI is an
+> **optional advisor** you switch on (bring your own key, cloud or local); it enriches
+> the deterministic core but never replaces it. Provx is not another autonomous AI
+> hacker — it's the governed, reproducible alternative.
+> See [`docs/DETERMINISTIC_CORE_and_NonAI_Strengths.md`](docs/DETERMINISTIC_CORE_and_NonAI_Strengths.md)
+> and [`docs/POSITIONING_and_STRATEGY.md`](docs/POSITIONING_and_STRATEGY.md).
+
 > [!IMPORTANT]
 > **Status: Phase 1 — governance scaffold (pre-alpha).** This repository currently
 > contains the project's structure, governance, and CI skeleton only. There is **no
@@ -27,6 +35,10 @@ confirms before anything is reported as real.
 
 ## Why Provx
 
+- **Deterministic brain.** A workflow/playbook engine decides what to run next from
+  discovered facts — reproducible and auditable (compliance-grade), not delegated to a
+  non-deterministic agent. Findings intelligence (dedup, EPSS prioritization,
+  risk-acceptance, retest) is all deterministic too.
 - **Safe by default.** Passive mode does recon and vulnerability assessment only.
   Intrusive checks require *Active* mode; exploitation requires per-finding human
   approval and runs sandboxed, non-destructive by default.
@@ -72,9 +84,10 @@ relicensing.
 
 | Path | What lives here |
 |---|---|
-| [`backend/`](backend/) | FastAPI control plane, scan orchestration, findings pipeline |
+| [`workflows/`](workflows/) | Deterministic YAML playbooks — the engine's brain |
+| [`backend/`](backend/) | FastAPI control plane, findings pipeline, deterministic services |
 | [`frontend/`](frontend/) | Next.js + Tailwind web console |
-| [`packages/adapters/`](packages/adapters/) | Tool-adapter plugins (nuclei, httpx, nmap, …) |
+| [`packages/adapters/`](packages/adapters/) | Plugin SDK: tool adapters + playbook loader |
 | [`packages/client/`](packages/client/) | Generated/typed API client |
 | [`lab/`](lab/) | Intentionally-vulnerable + clean targets for the accuracy harness |
 | [`wordlists/`](wordlists/) | Discovery / fuzzing wordlists |
@@ -85,9 +98,13 @@ relicensing.
 
 ## Architecture & roadmap
 
+- **Start here (canonical decisions):** [`docs/00_README_docs_index.md`](docs/00_README_docs_index.md).
+- **The deterministic core & why AI is optional:** [`docs/DETERMINISTIC_CORE_and_NonAI_Strengths.md`](docs/DETERMINISTIC_CORE_and_NonAI_Strengths.md).
+- **Positioning & strategy:** [`docs/POSITIONING_and_STRATEGY.md`](docs/POSITIONING_and_STRATEGY.md).
+- **Playbook schema:** [`docs/PLAYBOOK_SCHEMA.md`](docs/PLAYBOOK_SCHEMA.md).
 - **The standard we hold every contribution to:** [`docs/ROADMAP.md`](docs/ROADMAP.md)
   (North Star, Definition of Done, Safety Contract, architecture diagrams).
-- **The full feature map:** [`docs/PenForge-Local_Build_Blueprint.md`](docs/PenForge-Local_Build_Blueprint.md).
+- **The full feature map:** [`docs/Provx_Build_Blueprint.md`](docs/Provx_Build_Blueprint.md).
 - **How accuracy is measured (human-in-the-loop + oracles):**
   [`docs/VALIDATION_and_REFERENCE_SYSTEMS.md`](docs/VALIDATION_and_REFERENCE_SYSTEMS.md).
 - **How the project is run:** [`docs/PROJECT_SETUP_PLAYBOOK.md`](docs/PROJECT_SETUP_PLAYBOOK.md).
