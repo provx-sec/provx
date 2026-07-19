@@ -53,3 +53,9 @@ Thumbs.db
 reports/
 evidence/
 scan-output/
+
+# ---- Claude Code (track governance, ignore per-machine local) ----------------
+# rules.md, skills/, scripts/, workflows/ are shared governance (tracked).
+# Only local, per-machine files are ignored:
+.claude/settings.local.json
+.claude/**/settings.local.json
