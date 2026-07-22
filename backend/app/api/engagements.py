@@ -294,18 +294,14 @@ async def set_finding_in_report(
 async def engagement_report(
     engagement_id: uuid.UUID, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
-    """Render the engagement's HTML findings report.
+    """Render the engagement's client-ready HTML report.
 
     Only findings a human has kept in-report are shown, and a false positive is never shown
-    even if left in-report (rule PX-HUMAN). The template separates machine-found from
-    human-validated.
+    even if left in-report (rule PX-HUMAN). That report-membership filter, the machine-found
+    vs human-validated split, and severity ordering all live in ``build_report_context``, so
+    this route only has to load the findings and hand them over.
     """
     engagement = await _get_engagement(session, engagement_id)
     rows = await _findings(session, engagement_id)
-    findings = [
-        row.to_contract()
-        for row in rows
-        if row.in_report and row.status != FindingStatus.FALSE_POSITIVE
-    ]
-    html = render_report(engagement, findings)
+    html = render_report(engagement, [row.to_contract() for row in rows])
     return HTMLResponse(content=html)

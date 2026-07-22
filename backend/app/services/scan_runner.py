@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 
 from provx_sdk.evidence import EvidenceSeal, seal
 from provx_sdk.fetch import OutOfScopeRequest
-from provx_sdk.findings import FindingDraft, FindingStatus, Severity
+from provx_sdk.findings import FindingDraft, FindingStatus, severity_rank
 from provx_sdk.registry import load_adapter
 from provx_sdk.scope import ScopePolicy
 from sqlalchemy.exc import IntegrityError
@@ -34,16 +34,6 @@ from app.services.safety import assert_scan_permitted
 logger = logging.getLogger(__name__)
 
 DEFAULT_ADAPTER = "security_headers"
-
-#: Severity rank for the deterministic "keep the worst" rule when dedup collapses findings.
-#: Order-independent: max() over a set is the same whatever order the adapters ran in.
-_SEVERITY_RANK: dict[Severity, int] = {
-    Severity.INFO: 0,
-    Severity.LOW: 1,
-    Severity.MEDIUM: 2,
-    Severity.HIGH: 3,
-    Severity.CRITICAL: 4,
-}
 
 #: How many times to renumber and retry when a concurrent scan takes the same labels.
 #: Small on purpose - a persistent collision means something worse than contention.
@@ -210,7 +200,7 @@ def _keep_worst_severity(row: FindingRow, draft: FindingDraft) -> None:
 
     ``max`` over the pair is order-independent, so the finding's severity does not depend on
     which adapter ran first (rule PX-DETERMINISM)."""
-    if _SEVERITY_RANK[draft.severity] > _SEVERITY_RANK[row.severity]:
+    if severity_rank(draft.severity) > severity_rank(row.severity):
         row.severity = draft.severity
     if draft.cvss is not None and (row.cvss is None or draft.cvss > row.cvss):
         row.cvss = draft.cvss

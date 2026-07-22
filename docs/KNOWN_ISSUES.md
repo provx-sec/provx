@@ -140,6 +140,28 @@ KMS key should land alongside auth.
 
 ---
 
+## KI-005 — Report ATT&CK coverage uses a static in-repo technique→tactic map
+
+**Severity:** Low · **Status:** Open (accepted) · **Source:** `feat/report-hardening`
+**Site:** [`backend/app/services/report_attack.py`](../backend/app/services/report_attack.py)
+
+The report's "MITRE ATT&CK coverage" section maps technique ids to tactics from a small
+hand-maintained table covering the techniques the shipping passive adapters emit. It is not
+the full ATT&CK catalogue: a technique the table does not know falls into an `Unmapped`
+tactic (it is never dropped, so no finding is lost from coverage).
+
+**Why deferred:** the report is built offline, in air-gapped deployments too — it must not
+fetch the live ATT&CK catalogue (rule PX-EGRESS). A static table is correct and deterministic
+for the current adapter set. It becomes urgent only when many more techniques ship; the fix is
+to generate the table from a vendored ATT&CK STIX bundle at build time, still offline.
+
+**Related deferral (not a defect):** the additive `Finding.description` field and its
+`finding.description` column exist but no adapter populates them yet, so the report falls back
+to the finding `title`. Adapters can start emitting a richer description in a later PR with no
+schema change.
+
+---
+
 ## Not listed here
 
 Absent features are not issues. Authentication, the job queue, the PX-DSL expression
