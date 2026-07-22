@@ -23,13 +23,16 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import re
 import socket
 import ssl
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 
+from provx_sdk.auth import AuthCredential
 from provx_sdk.scope import ScopePolicy
 
 logger = logging.getLogger(__name__)
@@ -89,17 +92,58 @@ def redact_cookie_value(set_cookie: str) -> str:
     return f"{name}={_hash_tag(value.strip())}{sep}{rest}"
 
 
-def redact_headers(headers: dict[str, str]) -> dict[str, str]:
+def redact_headers(
+    headers: dict[str, str], extra_sensitive: frozenset[str] = frozenset()
+) -> dict[str, str]:
     """Replace the values of sensitive headers with a fingerprint before they leave (PX-SECRETS).
 
     ``set-cookie`` in this flattened dict is the comma-joined form and is not parsed for attributes
     by any adapter (that reads :attr:`FetchOutcome.set_cookies` instead), so its value is redacted
     whole like any other sensitive header.
+
+    ``extra_sensitive`` (lowercased names) extends the base denylist for one fetch: the header an
+    authenticated scan injects is added here, so if the server reflects it back in its response it
+    is redacted in the seal exactly like a server-sent secret (rule PX-EVIDENCE). Authorization and
+    Cookie are already covered; this matters for a custom header name.
     """
+    sensitive = SENSITIVE_HEADERS | extra_sensitive
     return {
-        name: (_hash_tag(value) if name.lower() in SENSITIVE_HEADERS else value)
+        name: (_hash_tag(value) if name.lower() in sensitive else value)
         for name, value in headers.items()
     }
+
+
+#: High-precision shapes for known secret material echoed into a response body. Best-effort by
+#: design: general body redaction is undecidable, so these catch common credential shapes without
+#: touching ordinary HTML. Documented as best-effort, not complete (docs/KNOWN_ISSUES.md, KI-004).
+_JWT_RE = re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+_BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*")
+#: An "Authorization: ..." / "Set-Cookie: ..." line echoed into a response body (e.g. a debug echo).
+_HEADER_ECHO_RE = re.compile(
+    r"(?im)^(?P<name>Authorization|Cookie|Set-Cookie|Proxy-Authorization):[ \t]*\S.*$"
+)
+_BODY_REDACTED = "<redacted:body>"
+
+
+def redact_body(body: str, exact: Sequence[str] = ()) -> str:
+    """Best-effort scrub of secret material from a response body before it is sealed (PX-SECRETS).
+
+    Two layers: exact removal of any known secret string (the injected credential, when an
+    authenticated scan echoes back), then pattern removal of common secret shapes (JWTs,
+    ``Bearer`` tokens, reflected credential header lines). It is deliberately conservative so it
+    does not alter ordinary page content, and it is **not** a completeness guarantee - at-rest
+    encryption remains the backstop for anything it misses (docs/KNOWN_ISSUES.md, KI-004).
+    """
+    if not body:
+        return body
+    redacted = body
+    for secret in exact:
+        if secret:
+            redacted = redacted.replace(secret, _BODY_REDACTED)
+    redacted = _JWT_RE.sub(_BODY_REDACTED, redacted)
+    redacted = _BEARER_RE.sub(_BODY_REDACTED, redacted)
+    redacted = _HEADER_ECHO_RE.sub(lambda m: f"{m.group('name')}: {_BODY_REDACTED}", redacted)
+    return redacted
 
 
 class OutOfScopeRequest(RuntimeError):
@@ -170,6 +214,13 @@ async def fetch_within_scope(
         logger.warning("refusing an out-of-scope target", extra={"url": redact_url(url)})
         raise OutOfScopeRequest(url)
 
+    auth = policy.auth
+    # Extend redaction for this fetch so a reflected credential is sealed as <redacted:...>: the
+    # injected header name (Authorization/Cookie already covered; a custom name added here) and the
+    # secret value itself if the body echoes it back (rules PX-SECRETS, PX-EVIDENCE).
+    extra_sensitive = frozenset({auth.header_name.lower()}) if auth else frozenset()
+    body_secrets = _body_secrets(auth)
+
     chain: list[str] = []
     current = url
 
@@ -178,14 +229,16 @@ async def fetch_within_scope(
         # max_redirects + 1 times. `response` is therefore always bound after it.
         for _ in range(max_redirects + 1):
             chain.append(current)
-            response = await client.get(current)
+            response = await client.get(current, headers=_auth_headers(auth, current, policy))
 
             if not _is_redirect(response.status_code):
-                return _outcome(url, current, response, chain, None)
+                return _outcome(url, current, response, chain, None, extra_sensitive, body_secrets)
 
             location = response.headers.get("location")
             if not location:
-                return _outcome(url, current, response, chain, MISSING_LOCATION)
+                return _outcome(
+                    url, current, response, chain, MISSING_LOCATION, extra_sensitive, body_secrets
+                )
 
             # Relative redirects are resolved against the hop that issued them.
             candidate = urljoin(current, location)
@@ -194,11 +247,55 @@ async def fetch_within_scope(
                     "refusing an out-of-scope redirect",
                     extra={"from_url": redact_url(current), "to_url": redact_url(candidate)},
                 )
-                return _outcome(url, current, response, chain, OUT_OF_SCOPE_REDIRECT)
+                return _outcome(
+                    url,
+                    current,
+                    response,
+                    chain,
+                    OUT_OF_SCOPE_REDIRECT,
+                    extra_sensitive,
+                    body_secrets,
+                )
 
             current = candidate
 
-        return _outcome(url, current, response, chain, TOO_MANY_REDIRECTS)
+        return _outcome(
+            url, current, response, chain, TOO_MANY_REDIRECTS, extra_sensitive, body_secrets
+        )
+
+
+def _auth_headers(
+    auth: AuthCredential | None, current: str, policy: ScopePolicy
+) -> dict[str, str] | None:
+    """The credential header to attach to this hop, or None for an anonymous request.
+
+    The guard is the SSRF control (rule PX-SCOPE): a credential attaches **only** to an in-scope
+    host. ``current`` is already validated in scope before it is fetched (the start URL above, each
+    redirect candidate before it becomes ``current``), so an off-scope host is never reached with a
+    request at all - the credential cannot ride a redirect out of scope. This re-check asserts that
+    invariant rather than trusting the ordering, and refuses rather than silently dropping the
+    header, so a scope bug fails loud instead of leaking a secret.
+    """
+    if auth is None:
+        return None
+    if not policy.is_in_scope(current):
+        logger.warning("refusing to attach a credential to an out-of-scope hop")
+        raise OutOfScopeRequest(current)
+    return {auth.header_name: auth.header_value}
+
+
+def _body_secrets(auth: AuthCredential | None) -> tuple[str, ...]:
+    """The exact secret strings to scrub from a response body if it echoes them back.
+
+    The whole injected header value, plus the bare token for a bearer credential (a body may echo
+    the token without its ``Bearer`` prefix). Pattern-based redaction in :func:`redact_body` covers
+    the rest on a best-effort basis (rule PX-SECRETS)."""
+    if auth is None:
+        return ()
+    value = auth.header_value
+    if value.startswith("Bearer "):
+        return (value, value[len("Bearer ") :])
+    return (value,)
 
 
 def _outcome(
@@ -207,20 +304,23 @@ def _outcome(
     response: httpx.Response,
     chain: list[str],
     reason: str | None,
+    extra_sensitive: frozenset[str] = frozenset(),
+    body_secrets: Sequence[str] = (),
 ) -> FetchOutcome:
     # Redaction happens here, at the one egress boundary, so every downstream consumer - the
     # adapters' envelopes, the evidence seal, and the logs - only ever sees redacted material
     # (rules PX-SECRETS, PX-EGRESS). set_cookies keeps each cookie's name and attributes for the
-    # cookie-hygiene check; only the value is removed.
+    # cookie-hygiene check; only the value is removed. extra_sensitive/body_secrets scrub an
+    # authenticated scan's own credential if the server reflects it back (rule PX-EVIDENCE).
     return FetchOutcome(
         requested_url=requested,
         final_url=final,
         status_code=response.status_code,
-        headers=redact_headers(dict(response.headers)),
+        headers=redact_headers(dict(response.headers), extra_sensitive),
         redirect_chain=list(chain),
         stopped_reason=reason,
         redirect_location=response.headers.get("location"),
-        body=response.text,
+        body=redact_body(response.text, body_secrets),
         set_cookies=[redact_cookie_value(c) for c in response.headers.get_list("set-cookie")],
     )
 

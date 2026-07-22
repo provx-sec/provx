@@ -17,6 +17,13 @@ import re
 import uuid
 from datetime import UTC, datetime
 
+from provx_sdk.auth import (
+    CREDENTIAL_TYPES,
+    AuthCredential,
+    InvalidCredentialError,
+    build_auth,
+    resolve_header_name,
+)
 from provx_sdk.evidence import EvidenceSeal
 from provx_sdk.findings import (
     DISPLAY_ID_PATTERN,
@@ -301,3 +308,71 @@ class FindingEventRow(SQLModel, table=True):
     actor: str | None = Field(default=None)
     note: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=_now, sa_column=_timestamp_column())
+
+
+class Credential(SQLModel, table=True):
+    """An engagement's authenticated-scanning credential (rules PX-SECRETS, PX-SCOPE).
+
+    Write-only from the API's perspective: the value is stored encrypted at rest with the same
+    AES-256-GCM layer that protects evidence (``encrypt_evidence``), and no read path ever returns
+    it - it is decrypted only in memory, at scan time, by :meth:`to_auth`. The crypto lives here at
+    the model seam, exactly as ``FindingRow`` does, so there is one place a stored secret is sealed
+    and one place it is opened.
+
+    One credential per engagement (the unique constraint). Unlike evidence, a credential is mutable
+    operational config - it may be replaced or deleted when it rotates; the append-only rule
+    (PX-EVIDENCE) governs evidence and the audit trail, not this row.
+    """
+
+    __tablename__ = "credential"
+    __table_args__ = (UniqueConstraint("engagement_id", name="uq_credential_engagement"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    engagement_id: uuid.UUID = Field(foreign_key="engagement.id", index=True)
+    # "bearer" | "cookie" | "header" (see provx_sdk.auth.CREDENTIAL_TYPES).
+    cred_type: str
+    # The effective request header this credential attaches to. Derived for bearer/cookie, the
+    # operator-supplied name for a custom header; stored so it can be shown without the value.
+    header_name: str
+    # The secret, AES-256-GCM encrypted (enc:v1:...). Never returned by any endpoint.
+    value_encrypted: str
+    # Optional operator label, e.g. "staging bearer". Not a secret.
+    label: str | None = Field(default=None)
+    created_at: datetime = Field(default_factory=_now, sa_column=_timestamp_column())
+
+    @classmethod
+    def from_input(
+        cls,
+        *,
+        engagement_id: uuid.UUID,
+        cred_type: str,
+        value: str,
+        header_name: str | None = None,
+        label: str | None = None,
+    ) -> Credential:
+        """Build a row from operator input, validating and encrypting on the way in.
+
+        Validation happens here, where the caller can still fix it: ``build_auth`` normalizes and
+        rejects a bad type / empty value / missing custom-header name, and the effective header
+        name is resolved once so storage and injection cannot drift. The secret is encrypted before
+        it is ever persisted (rule PX-SECRETS).
+        """
+        kind = cred_type.strip().lower()
+        if kind not in CREDENTIAL_TYPES:
+            raise InvalidCredentialError(f"unknown credential type {cred_type!r}")
+        # Surfaces an empty value / missing custom name before anything is written.
+        build_auth(kind, value, header_name)
+        return cls(
+            engagement_id=engagement_id,
+            cred_type=kind,
+            header_name=resolve_header_name(kind, header_name),
+            value_encrypted=encrypt_evidence(value),
+            label=label,
+        )
+
+    def to_auth(self) -> AuthCredential:
+        """Decrypt the stored secret in memory and normalize it into the header to inject.
+
+        Called only at scan time. The plaintext exists only for the life of the returned
+        credential and never touches storage or a log (rule PX-SECRETS)."""
+        return build_auth(self.cred_type, decrypt_evidence(self.value_encrypted), self.header_name)

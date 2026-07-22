@@ -18,15 +18,18 @@ from dataclasses import field as dc_field
 import httpx
 import pytest
 from provx_sdk import fetch
+from provx_sdk.auth import build_auth
 from provx_sdk.fetch import (
     MISSING_LOCATION,
     OUT_OF_SCOPE_REDIRECT,
     TOO_MANY_REDIRECTS,
     OutOfScopeRequest,
     TlsHandshake,
+    _auth_headers,
     _hash_tag,
     fetch_within_scope,
     probe_tls_within_scope,
+    redact_body,
     redact_cookie_value,
     redact_url,
 )
@@ -362,3 +365,130 @@ def test_certificate_verification_codes_map_to_stable_labels() -> None:
     assert fetch._classify_cert_error(exc) == "self_signed"
     exc.verify_code = 99
     assert fetch._classify_cert_error(exc) == "invalid"
+
+
+# --- authenticated scanning: credential injection + redaction at the boundary ---------------
+#
+# These prove the SSRF-safe injection contract with a stubbed transport that records the REQUEST
+# headers (the base `net` fixture only records URLs). The no-stub proof lives in the backend
+# integration suite; this is the cheap per-branch coverage its docstring refers to.
+
+
+@dataclass
+class ReqNet:
+    """A stubbed network that records each request's URL and headers."""
+
+    routes: dict[str, httpx.Response] = dc_field(default_factory=dict)
+    requests: list[tuple[str, httpx.Headers]] = dc_field(default_factory=list)
+
+
+@pytest.fixture
+def reqnet(monkeypatch: pytest.MonkeyPatch) -> ReqNet:
+    """Like `net`, but keeps the request headers so credential injection is observable."""
+    mock = ReqNet()
+    original = httpx.AsyncClient.__init__
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        mock.requests.append((str(request.url), request.headers))
+        try:
+            return mock.routes[str(request.url)]
+        except KeyError:  # pragma: no cover - a miss means the test itself is wrong
+            raise AssertionError(f"unexpected request to {request.url}") from None
+
+    def init(self: httpx.AsyncClient, **kwargs: object) -> None:
+        kwargs["transport"] = httpx.MockTransport(handler)
+        original(self, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", init)
+    return mock
+
+
+def _authed() -> ScopePolicy:
+    return ScopePolicy(allow=["*.example.com"], auth=build_auth("bearer", "s3cr3t-tok"))
+
+
+async def test_credential_is_injected_on_an_in_scope_request(reqnet: ReqNet) -> None:
+    reqnet.routes["https://app.example.com/"] = ok(server="nginx")
+
+    await fetch_within_scope("https://app.example.com/", _authed())
+
+    url, headers = reqnet.requests[0]
+    assert url == "https://app.example.com/"
+    assert headers["authorization"] == "Bearer s3cr3t-tok"
+
+
+async def test_no_credential_means_no_auth_header(reqnet: ReqNet) -> None:
+    reqnet.routes["https://app.example.com/"] = ok(server="nginx")
+
+    await fetch_within_scope("https://app.example.com/", IN_SCOPE)
+
+    _, headers = reqnet.requests[0]
+    assert "authorization" not in headers
+
+
+async def test_credential_never_rides_an_out_of_scope_redirect(reqnet: ReqNet) -> None:
+    # The in-scope hop carries the credential; the off-scope target is never requested at all,
+    # so the credential cannot leave scope (rule PX-SCOPE).
+    reqnet.routes["https://app.example.com/"] = redirect("https://evil.test/steal")
+
+    outcome = await fetch_within_scope("https://app.example.com/", _authed())
+
+    assert outcome.stopped_reason == OUT_OF_SCOPE_REDIRECT
+    assert [url for url, _ in reqnet.requests] == ["https://app.example.com/"]
+    assert reqnet.requests[0][1]["authorization"] == "Bearer s3cr3t-tok"
+
+
+def test_auth_headers_guard_refuses_an_out_of_scope_hop() -> None:
+    # The belt-and-suspenders SSRF guard: even asked directly, a credential never attaches to an
+    # off-scope host.
+    policy = _authed()
+    with pytest.raises(OutOfScopeRequest):
+        _auth_headers(policy.auth, "https://evil.test/", policy)
+
+
+async def test_reflected_custom_header_is_redacted_in_the_seal(reqnet: ReqNet) -> None:
+    # A custom credential header the server echoes back must be redacted like a server-sent secret.
+    policy = ScopePolicy(
+        allow=["*.example.com"], auth=build_auth("header", "k3yv4l", header_name="X-API-Key")
+    )
+    reqnet.routes["https://app.example.com/"] = httpx.Response(
+        200, headers=[(b"x-api-key", b"k3yv4l"), (b"server", b"nginx")]
+    )
+
+    outcome = await fetch_within_scope("https://app.example.com/", policy)
+
+    assert outcome.headers["x-api-key"] == _hash_tag("k3yv4l")
+    assert "k3yv4l" not in repr(outcome.headers)
+
+
+async def test_body_echo_of_the_credential_is_scrubbed(reqnet: ReqNet) -> None:
+    reqnet.routes["https://app.example.com/"] = httpx.Response(
+        200, text="hello s3cr3t-tok world", headers={"server": "nginx"}
+    )
+
+    outcome = await fetch_within_scope("https://app.example.com/", _authed())
+
+    assert "s3cr3t-tok" not in outcome.body
+    assert "<redacted:body>" in outcome.body
+
+
+def test_redact_body_covers_known_secret_shapes_best_effort() -> None:
+    jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcDEF123_-"
+    body = (
+        f"token={jwt}\n"
+        "Authorization: Bearer another.tok.value\n"
+        "give me Bearer sk-looooong-token-value==\n"
+        "<p>ordinary page content stays</p>"
+    )
+    out = redact_body(body)
+
+    assert jwt not in out
+    assert "another.tok.value" not in out
+    assert "sk-looooong-token-value" not in out
+    # Non-secret content is untouched.
+    assert "ordinary page content stays" in out
+
+
+def test_redact_body_is_a_noop_without_secrets() -> None:
+    body = "<html><body><h1>Welcome</h1></body></html>"
+    assert redact_body(body) == body

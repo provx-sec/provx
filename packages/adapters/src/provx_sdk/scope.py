@@ -37,6 +37,8 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from provx_sdk.auth import AuthCredential
+
 logger = logging.getLogger(__name__)
 
 ALLOWED_SCHEMES = frozenset({"http", "https"})
@@ -144,7 +146,8 @@ class ScopePolicy(BaseModel):
     fails closed rather than scanning the internet.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    # arbitrary_types_allowed carries the non-Pydantic AuthCredential; extra stays forbidden.
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     allow: list[str] = Field(default_factory=list)
     deny: list[str] = Field(default_factory=list)
@@ -152,6 +155,12 @@ class ScopePolicy(BaseModel):
     # pivot, so permitting it is a decision an operator makes explicitly and that is logged
     # when exercised. Local lab targets are the legitimate use.
     allow_dangerous_ranges: bool = False
+    # The credential to present on in-scope requests (authenticated scanning), or None for an
+    # anonymous scan. ``policy`` is the one object threaded engagement -> adapter -> fetch, so the
+    # credential rides here to reach the egress boundary without changing any adapter signature.
+    # It holds a live secret: exclude=True keeps it out of every model_dump(), repr=False keeps it
+    # out of the model's repr, and AuthCredential redacts its own repr (rules PX-SECRETS, PX-SCOPE).
+    auth: AuthCredential | None = Field(default=None, exclude=True, repr=False)
 
     def is_in_scope(self, target: str) -> bool:
         """Report whether the target may be reached under this policy."""

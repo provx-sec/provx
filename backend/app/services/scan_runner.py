@@ -18,6 +18,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
+from provx_sdk.auth import AuthCredential
 from provx_sdk.evidence import EvidenceSeal, seal
 from provx_sdk.fetch import OutOfScopeRequest
 from provx_sdk.findings import FindingDraft, FindingStatus, severity_rank
@@ -52,19 +53,28 @@ def display_id_for(sequence: int) -> str:
 
 
 async def run_scan(
-    session: AsyncSession, engagement: Engagement, adapter_name: str = DEFAULT_ADAPTER
+    session: AsyncSession,
+    engagement: Engagement,
+    adapter_name: str = DEFAULT_ADAPTER,
+    *,
+    auth: AuthCredential | None = None,
 ) -> Scan:
     """Run one adapter across an engagement's in-scope targets and persist the results.
 
     Returns the completed Scan record. Findings are written in the same transaction as the
     scan itself, so a partial scan never leaves orphaned findings behind (rule B-FA-04).
+
+    ``auth`` carries an authenticated scan's credential. It rides on the ScopePolicy so it reaches
+    the single egress boundary without changing any adapter signature, and it is attached only to
+    in-scope hops there (rules PX-SCOPE, PX-SECRETS). An authenticated scan is still passive - it
+    presents a session, it does not change target state - so the safety gate is unchanged.
     """
     adapter = load_adapter(adapter_name)
     settings = get_settings()
     # Before anything is reached: the recorded safety controls must actually permit this.
     assert_scan_permitted(settings, engagement, adapter)
 
-    policy = ScopePolicy(allow=engagement.scope_allow, deny=engagement.scope_deny)
+    policy = ScopePolicy(allow=engagement.scope_allow, deny=engagement.scope_deny, auth=auth)
     timeout = settings.http_timeout
 
     targets = (
