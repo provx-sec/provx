@@ -32,6 +32,8 @@ from provx_sdk.findings import (
 from sqlalchemy import DateTime, UniqueConstraint
 from sqlmodel import JSON, Column, Field, SQLModel
 
+from app.security.evidence_crypto import decrypt_evidence, encrypt_evidence
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -154,7 +156,11 @@ class FindingRow(SQLModel, table=True):
             confidence=draft.confidence,
             attack_techniques=validate_attack_techniques(list(draft.attack_techniques)),
             remediation=draft.remediation,
-            evidence_tool_output=evidence.tool_output if evidence else None,
+            evidence_tool_output=(
+                encrypt_evidence(evidence.tool_output)
+                if evidence and evidence.tool_output is not None
+                else None
+            ),
             evidence_matched_rule=evidence.matched_rule if evidence else None,
             evidence_reproduction_cmd=evidence.reproduction_cmd if evidence else None,
             evidence_sha256=stamp.sha256,
@@ -177,7 +183,11 @@ class FindingRow(SQLModel, table=True):
             attack_techniques=list(self.attack_techniques),
             remediation=self.remediation,
             evidence=Evidence(
-                tool_output=self.evidence_tool_output,
+                tool_output=(
+                    decrypt_evidence(self.evidence_tool_output)
+                    if self.evidence_tool_output is not None
+                    else None
+                ),
                 matched_rule=self.evidence_matched_rule,
                 reproduction_cmd=self.evidence_reproduction_cmd,
             ),

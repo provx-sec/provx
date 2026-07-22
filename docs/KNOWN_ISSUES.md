@@ -95,6 +95,51 @@ lookup.
 
 ---
 
+## KI-004 — Sensitive material in sealed evidence
+
+**Severity:** Medium · **Status:** ✅ RESOLVED (with residuals) · **Source:** safety review (PX-SECRETS)
+**Site:** [`packages/adapters/src/provx_sdk/fetch.py`](../packages/adapters/src/provx_sdk/fetch.py),
+[`backend/app/models/tables.py`](../backend/app/models/tables.py) —
+[`backend/app/security/evidence_crypto.py`](../backend/app/security/evidence_crypto.py)
+
+An adapter's `raw` envelope is both `seal()`-hashed and embedded verbatim into
+`Evidence.tool_output`, then written to the insert-only `finding.evidence_tool_output` column. The
+envelopes serialized full response header dicts and raw `Set-Cookie` values, so a live session token
+could land in an evidence row that has **no delete path** (PX-EVIDENCE append-only) — retaining
+session material and tensioning PX-SECRETS. `parse_output` already dropped the cookie value for
+*analysis*; the stored envelope did not.
+
+**✅ Resolved — two layers, by concern:**
+
+1. **Redaction at the egress boundary.** `fetch_within_scope` now redacts the values of sensitive
+   headers (`Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`) in `FetchOutcome` before
+   anything serializes or seals them, substituting `<redacted:sha256:…>` — a fingerprint that
+   preserves evidentiary integrity (same secret → same tag) without keeping the secret. Cookie *name*
+   and *attributes* are kept, so `cookie_flags` is unaffected. One choke point (reinforces PX-EGRESS);
+   every current and future adapter is covered with no adapter change.
+2. **Encryption at rest.** `evidence_tool_output` is AES-256-GCM encrypted on write and decrypted on
+   read (the single `to_contract` seam), so the whole blob is unreadable in the database regardless of
+   content. The seal is unchanged — `evidence_sha256` is over the redacted plaintext, which decryption
+   reproduces exactly, so the capture-time hash still verifies.
+
+**Residual risks (deferred):**
+- **Body content beyond headers** is not redacted (general body redaction is undecidable); the at-rest
+  encryption is the mitigation until a structured need appears.
+- **URL userinfo** in evidence envelopes (`redirect_chain`/`redirect_location`) is not redacted;
+  `redact_url` covers the log path only. Low exposure today.
+- **Key management:** the AES key is HKDF-derived from `SECRET_KEY`. A dedicated, rotated **KMS-backed
+  key** is the production upgrade.
+- **SDK-004 (inline-seal)** remains open: the seal still lives outside the `Evidence` model and is
+  threaded through `scan_runner`, so a consumer that bypasses it holds unsealed evidence. Tracked in
+  `audits/sdk/99_FINDINGS.md`; this change is compatible with resolving it later.
+
+**What makes the residuals urgent:** authenticated scanning. Once real credentials flow through scans,
+request-side `Authorization`/`Cookie` and the (currently unpopulated) `Evidence.raw_request` become
+live vectors — boundary redaction already covers those header names; body/userinfo redaction and a
+KMS key should land alongside auth.
+
+---
+
 ## Not listed here
 
 Absent features are not issues. Authentication, the job queue, the PX-DSL expression
