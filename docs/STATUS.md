@@ -2,7 +2,7 @@
 
 *The single source of truth for "where are we vs. the plan." Update this file as part of EVERY PR's Definition of Done. If it's not here, it's not tracked. Do not trust memory (human or AI) over this file.*
 
-**Last updated:** branch `feat/findings-pipeline` (findings dedup + lifecycle) · **Current phase:** Phase 2 — Web module (in progress) · **Target milestone:** v0.1
+**Last updated:** branch `feat/report-hardening` (client-ready HTML report) · **Current phase:** Phase 2 — Web module (✅ complete) · **Target milestone:** v0.1 (ready to tag)
 
 ---
 
@@ -12,8 +12,8 @@
 |---|---|---|
 | 0 — Foundations | Compose, Postgres, auth-less skeleton, scope engine, governance | ✅ done |
 | 1 — Engagements & scope | Engagement CRUD, scope allow/deny, targets, walking skeleton | ✅ done |
-| **2 — Web module (MVP)** | **Passive adapters → findings pipeline → report** | **🔨 in progress** |
-| 3 — Reporting | Branding, HTML→PDF/Word, dashboard | ⏳ partial (HTML skeleton exists) |
+| **2 — Web module (MVP)** | **Passive adapters → findings pipeline → report** | **✅ done** |
+| 3 — Reporting | Branding, HTML→PDF/Word, dashboard | ⏳ partial (client-ready HTML ✅; PDF/Word + dashboard still to do) |
 | 4 — API module | OWASP API Top 10 | ⛔ not started |
 | 5 — Infra & AD | nmap/BloodHound, approval-gated exploitation | ⛔ not started |
 | 6 — Exploitation + AI | Approval queue, optional AI advisor | ⛔ not started |
@@ -31,8 +31,8 @@
 | Egress hardening (redirect/scope/evidence) | ✅ | earlier + #9 |
 | Evidence redaction + encryption at rest | ✅ | #9 (redaction) + #10 (encryption) |
 | **Findings dedup + validate/in-report lifecycle** | ✅ | `feat/findings-pipeline`: deterministic cross-adapter dedup (rule_id+target+location) keeping every evidence ref; validation lifecycle + transition/in-report endpoints; FP suppression + regression intent |
-| HTML report hardening (severity order, ATT&CK, machine-vs-validated) | ⏳ | machine-vs-validated split + per-finding status ✅ (`feat/findings-pipeline`); severity ordering / ATT&CK grouping still to do → completes v0.1 |
-| Authenticated scanning | ⛔ | NEW capability class — after pipeline is complete |
+| HTML report hardening (severity order, ATT&CK, machine-vs-validated) | ✅ | `feat/report-hardening` (PR TBD): 7 documented sections (exec summary + posture, scope/RoE, methodology, findings summary, detailed findings, ATT&CK coverage, remediation roadmap); deterministic Critical→Info ordering; classification/branding from config; sealed evidence *reference* only (hash + capture time, never raw); machine-vs-validated split + PX-HUMAN banner kept. **Completes v0.1.** |
+| Authenticated scanning | ⛔ | NEW capability class — after pipeline is complete (post-v0.1) |
 
 ## Open issues / known issues (tracked, deferred deliberately)
 

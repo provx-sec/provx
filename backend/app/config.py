@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     redis_url: str = ""
     ai_enabled: bool = False
 
+    # Client-report branding and handling marking. All optional: a report renders without
+    # them (client name always comes from the engagement). The classification defaults to the
+    # cautious marking so an unconfigured deployment still stamps reports as sensitive.
+    report_classification: str = "CONFIDENTIAL"
+    report_tester_org: str = ""
+    report_tester_name: str = ""
+    report_tester_contact: str = ""
+
     @property
     def is_debug_env(self) -> bool:
         """Whether internal error detail may be exposed to API clients."""

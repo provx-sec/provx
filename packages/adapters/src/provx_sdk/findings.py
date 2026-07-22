@@ -89,6 +89,30 @@ class Severity(StrEnum):
     CRITICAL = "critical"
 
 
+#: Severity from most to least serious. The single source of truth for ordering, so the
+#: dedup "keep the worst" rule and report sorting cannot drift apart (rules PX-DETERMINISM,
+#: Q-11). Report presentation reads highest-first; ``SEVERITY_RANK`` gives the numeric weight.
+SEVERITY_ORDER: tuple[Severity, ...] = (
+    Severity.CRITICAL,
+    Severity.HIGH,
+    Severity.MEDIUM,
+    Severity.LOW,
+    Severity.INFO,
+)
+SEVERITY_RANK: dict[Severity, int] = {
+    Severity.INFO: 0,
+    Severity.LOW: 1,
+    Severity.MEDIUM: 2,
+    Severity.HIGH: 3,
+    Severity.CRITICAL: 4,
+}
+
+
+def severity_rank(severity: Severity) -> int:
+    """Numeric weight of a severity band; higher is more serious (see ``SEVERITY_RANK``)."""
+    return SEVERITY_RANK[severity]
+
+
 class Confidence(StrEnum):
     """How sure the deterministic engine is. Low-confidence findings can be filtered so
     noise is opt-in (see docs/VALIDATION_and_REFERENCE_SYSTEMS.md §1)."""
@@ -175,6 +199,16 @@ class Finding(BaseModel):
     attack_techniques: list[str] = Field(default_factory=list)
     evidence: Evidence | None = None
     remediation: str | None = None
+    # Long-form explanation of the issue for a client report, distinct from the one-line
+    # ``title``. Optional: adapters may not set it, in which case a report falls back to the
+    # title. Additive for report hardening; the raw evidence body is never a substitute.
+    description: str | None = None
+    # The sealed evidence reference carried through for reports: the SHA-256 taken over the
+    # redacted artifact at capture time and that capture timestamp (rule PX-EVIDENCE). These
+    # are the *reference*, never the raw evidence body - a report shows the hash, not secrets
+    # (rule PX-SECRETS). Populated when a stored finding is rebuilt; a fresh draft has neither.
+    evidence_sha256: str | None = None
+    captured_at: datetime | None = None
 
     @field_validator("attack_techniques")
     @classmethod
@@ -201,6 +235,9 @@ class FindingDraft(BaseModel):
     attack_techniques: list[str] = Field(default_factory=list)
     evidence: Evidence | None = None
     remediation: str | None = None
+    # Optional long-form description; see the same field on Finding. An adapter may set it to
+    # give a report a fuller explanation than the one-line title.
+    description: str | None = None
     # Canonical issue identity and location; see the same fields on Finding. Setting a shared
     # rule_id across adapters is how two tools that find the same issue collapse into one
     # finding instead of relying on identical display strings.

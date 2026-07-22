@@ -127,6 +127,9 @@ class FindingRow(SQLModel, table=True):
     regression_intent: bool = Field(default=False)
     attack_techniques: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     remediation: str | None = Field(default=None)
+    # Optional long-form description for the client report, distinct from the one-line title.
+    # Nullable and unset by current adapters; the report falls back to the title when absent.
+    description: str | None = Field(default=None)
     evidence_tool_output: str | None = Field(default=None)
     evidence_matched_rule: str | None = Field(default=None)
     evidence_reproduction_cmd: str | None = Field(default=None)
@@ -168,6 +171,7 @@ class FindingRow(SQLModel, table=True):
             location=draft.location,
             attack_techniques=validate_attack_techniques(list(draft.attack_techniques)),
             remediation=draft.remediation,
+            description=draft.description,
             evidence_tool_output=(
                 encrypt_evidence(evidence.tool_output)
                 if evidence and evidence.tool_output is not None
@@ -208,6 +212,9 @@ class FindingRow(SQLModel, table=True):
             in_report=self.in_report,
             attack_techniques=list(self.attack_techniques),
             remediation=self.remediation,
+            description=self.description,
+            evidence_sha256=self.evidence_sha256,
+            captured_at=self.captured_at,
             evidence=Evidence(
                 tool_output=(
                     decrypt_evidence(self.evidence_tool_output)
