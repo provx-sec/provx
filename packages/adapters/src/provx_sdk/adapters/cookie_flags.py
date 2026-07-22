@@ -201,6 +201,10 @@ class CookieFlagsAdapter:
             confidence=Confidence.HIGH,
             attack_techniques=list(rule.techniques),
             remediation=rule.remediation,
+            # The cookie name is the location, so the same missing flag on two different
+            # cookies stays two findings rather than collapsing into one (PX-DETERMINISM).
+            rule_id=rule.check,
+            location=name,
             evidence=Evidence(
                 tool_output=raw,
                 matched_rule=f"{self.name}:{rule.check}",

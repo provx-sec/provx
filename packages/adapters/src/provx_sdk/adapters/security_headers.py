@@ -29,20 +29,33 @@ from provx_sdk.scope import ScopePolicy
 #: Reconnaissance of a target's exposed configuration.
 RECON_TECHNIQUE: Final = "T1595"
 
+#: Shared canonical id for the missing-HSTS issue. The tls adapter reports the same weakness;
+#: a shared rule_id collapses both into one finding carrying both evidences (PX-DETERMINISM).
+HSTS_RULE_ID: Final = "missing-hsts"
+
 
 class HeaderRule:
     """One missing-header check: what to look for and how to describe its absence."""
 
-    __slots__ = ("header", "title", "severity", "cvss", "remediation")
+    __slots__ = ("header", "title", "severity", "cvss", "remediation", "rule_id")
 
     def __init__(
-        self, header: str, title: str, severity: Severity, cvss: float, remediation: str
+        self,
+        header: str,
+        title: str,
+        severity: Severity,
+        cvss: float,
+        remediation: str,
+        rule_id: str | None = None,
     ) -> None:
         self.header = header
         self.title = title
         self.severity = severity
         self.cvss = cvss
         self.remediation = remediation
+        # Canonical cross-adapter issue id used for dedup. Set only where another adapter
+        # reports the same issue (HSTS), so the two collapse into one finding (PX-DETERMINISM).
+        self.rule_id = rule_id
 
 
 RULES: Final[tuple[HeaderRule, ...]] = (
@@ -69,6 +82,7 @@ RULES: Final[tuple[HeaderRule, ...]] = (
         3.7,
         "Set `Strict-Transport-Security: max-age=31536000; includeSubDomains` so browsers "
         "refuse to downgrade to plaintext HTTP.",
+        rule_id=HSTS_RULE_ID,
     ),
     HeaderRule(
         "x-content-type-options",
@@ -184,6 +198,7 @@ class SecurityHeadersAdapter:
                     confidence=Confidence.HIGH,
                     attack_techniques=[RECON_TECHNIQUE],
                     remediation=rule.remediation,
+                    rule_id=rule.rule_id,
                     evidence=Evidence(
                         tool_output=raw,
                         matched_rule=f"{self.name}:{rule.header}",

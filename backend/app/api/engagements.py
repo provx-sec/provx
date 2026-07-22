@@ -15,12 +15,28 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
-from sqlmodel import select
+from provx_sdk.findings import FindingStatus
+from sqlalchemy import func
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.schemas import EngagementCreate, EngagementRead, FindingRead, ScanRead
+from app.api.schemas import (
+    EngagementCreate,
+    EngagementRead,
+    FindingRead,
+    FindingTransitionRequest,
+    InReportRequest,
+    ScanRead,
+)
 from app.db import get_session
-from app.models.tables import Engagement, FindingRow, Target
+from app.models.tables import (
+    Engagement,
+    FindingEventRow,
+    FindingEvidenceRow,
+    FindingRow,
+    Target,
+)
+from app.services.lifecycle import IllegalTransitionError, assert_transition
 from app.services.report import render_report
 from app.services.safety import SCAN_NOT_PERMITTED, ScanNotPermittedError
 from app.services.scan_runner import run_scan
@@ -30,6 +46,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/engagements", tags=["engagements"])
 
 ENGAGEMENT_NOT_FOUND = "engagement_not_found"
+FINDING_NOT_FOUND = "finding_not_found"
+ILLEGAL_TRANSITION = "illegal_transition"
 
 
 async def _get_engagement(session: AsyncSession, engagement_id: uuid.UUID) -> Engagement:
@@ -54,11 +72,41 @@ async def _findings(session: AsyncSession, engagement_id: uuid.UUID) -> list[Fin
     )
 
 
-def _to_read(row: FindingRow) -> FindingRead:
+async def _get_finding(
+    session: AsyncSession, engagement_id: uuid.UUID, finding_id: uuid.UUID
+) -> FindingRow:
+    """Load a finding, scoped to its engagement so a mismatched pair is a 404, not a leak."""
+    finding = await session.get(FindingRow, finding_id)
+    if finding is None or finding.engagement_id != engagement_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": FINDING_NOT_FOUND, "message": "Finding not found."},
+        )
+    return finding
+
+
+async def _appended_evidence_counts(
+    session: AsyncSession, engagement_id: uuid.UUID
+) -> dict[uuid.UUID, int]:
+    """How many *appended* evidence rows each finding has (dedup collapses beyond the first).
+    One grouped query rather than one per finding."""
+    rows = (
+        await session.exec(
+            select(FindingEvidenceRow.finding_id, func.count())
+            .join(FindingRow, col(FindingRow.id) == col(FindingEvidenceRow.finding_id))
+            .where(FindingRow.engagement_id == engagement_id)
+            .group_by(col(FindingEvidenceRow.finding_id))
+        )
+    ).all()
+    return {finding_id: count for finding_id, count in rows}
+
+
+def _to_read(row: FindingRow, appended_evidence: int) -> FindingRead:
     """Project a stored finding onto the public response shape.
 
     Written out field by field on purpose: a column added to the table stays unpublished
-    until someone deliberately adds it here (rule B-FA-01).
+    until someone deliberately adds it here (rule B-FA-01). ``evidence_ref_count`` is the
+    primary evidence (always 1) plus any appended by dedup.
     """
     return FindingRead(
         id=row.id,
@@ -70,6 +118,8 @@ def _to_read(row: FindingRow) -> FindingRead:
         cvss=row.cvss,
         confidence=row.confidence,
         status=row.status,
+        in_report=row.in_report,
+        evidence_ref_count=1 + appended_evidence,
         attack_techniques=list(row.attack_techniques),
         remediation=row.remediation,
         evidence_sha256=row.evidence_sha256,
@@ -151,15 +201,111 @@ async def list_findings(
 ) -> list[FindingRead]:
     """List an engagement's deduplicated findings, ordered by display id."""
     await _get_engagement(session, engagement_id)
-    return [_to_read(row) for row in await _findings(session, engagement_id)]
+    counts = await _appended_evidence_counts(session, engagement_id)
+    return [_to_read(row, counts.get(row.id, 0)) for row in await _findings(session, engagement_id)]
+
+
+@router.post(
+    "/{engagement_id}/findings/{finding_id}/transition",
+    response_model=FindingRead,
+    status_code=status.HTTP_200_OK,
+)
+async def transition_finding(
+    engagement_id: uuid.UUID,
+    finding_id: uuid.UUID,
+    payload: FindingTransitionRequest,
+    session: AsyncSession = Depends(get_session),
+) -> FindingRead:
+    """Move a finding through the validation lifecycle.
+
+    Only an explicit call here can reach ``validated`` - the machine never self-confirms
+    (rule PX-HUMAN). Illegal edges are refused deterministically, and every transition writes
+    an append-only audit row (rule PX-EVIDENCE).
+    """
+    finding = await _get_finding(session, engagement_id, finding_id)
+    current = finding.status
+    try:
+        assert_transition(current, payload.to_status)
+    except IllegalTransitionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error_code": ILLEGAL_TRANSITION,
+                "message": "This lifecycle transition is not allowed.",
+            },
+        ) from exc
+
+    session.add(
+        FindingEventRow(
+            finding_id=finding.id,
+            event_type="status_change",
+            from_status=current,
+            to_status=payload.to_status,
+            actor=payload.actor,
+            note=payload.note,
+        )
+    )
+    finding.status = payload.to_status
+    # Marking a false positive records the intent to seed a regression test later; it also
+    # suppresses the finding on re-scan (see scan_runner._persist_scan).
+    if payload.to_status == FindingStatus.FALSE_POSITIVE:
+        finding.regression_intent = True
+    session.add(finding)
+    await session.commit()
+    await session.refresh(finding)
+
+    counts = await _appended_evidence_counts(session, engagement_id)
+    return _to_read(finding, counts.get(finding.id, 0))
+
+
+@router.post(
+    "/{engagement_id}/findings/{finding_id}/in-report",
+    response_model=FindingRead,
+    status_code=status.HTTP_200_OK,
+)
+async def set_finding_in_report(
+    engagement_id: uuid.UUID,
+    finding_id: uuid.UUID,
+    payload: InReportRequest,
+    session: AsyncSession = Depends(get_session),
+) -> FindingRead:
+    """Include or exclude a finding from the client-facing report, writing an audit row."""
+    finding = await _get_finding(session, engagement_id, finding_id)
+    session.add(
+        FindingEventRow(
+            finding_id=finding.id,
+            event_type="in_report_toggle",
+            from_status=finding.status,
+            in_report=payload.in_report,
+            actor=payload.actor,
+            note=payload.note,
+        )
+    )
+    finding.in_report = payload.in_report
+    session.add(finding)
+    await session.commit()
+    await session.refresh(finding)
+
+    counts = await _appended_evidence_counts(session, engagement_id)
+    return _to_read(finding, counts.get(finding.id, 0))
 
 
 @router.get("/{engagement_id}/report", response_class=HTMLResponse)
 async def engagement_report(
     engagement_id: uuid.UUID, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
-    """Render the engagement's HTML findings report."""
+    """Render the engagement's HTML findings report.
+
+    Only findings a human has kept in-report are shown, and a false positive is never shown
+    even if left in-report (rule PX-HUMAN). The template separates machine-found from
+    human-validated.
+    """
     engagement = await _get_engagement(session, engagement_id)
     rows = await _findings(session, engagement_id)
-    html = render_report(engagement, [row.to_contract() for row in rows])
+    findings = [
+        row.to_contract()
+        for row in rows
+        if row.in_report and row.status != FindingStatus.FALSE_POSITIVE
+    ]
+    html = render_report(engagement, findings)
     return HTMLResponse(content=html)

@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 
 from provx_sdk.evidence import EvidenceSeal, seal
 from provx_sdk.fetch import OutOfScopeRequest
-from provx_sdk.findings import FindingDraft
+from provx_sdk.findings import FindingDraft, FindingStatus, Severity
 from provx_sdk.registry import load_adapter
 from provx_sdk.scope import ScopePolicy
 from sqlalchemy.exc import IntegrityError
@@ -28,12 +28,22 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.config import get_settings
-from app.models.tables import Engagement, FindingRow, Scan, Target
+from app.models.tables import Engagement, FindingEvidenceRow, FindingRow, Scan, Target
 from app.services.safety import assert_scan_permitted
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_ADAPTER = "security_headers"
+
+#: Severity rank for the deterministic "keep the worst" rule when dedup collapses findings.
+#: Order-independent: max() over a set is the same whatever order the adapters ran in.
+_SEVERITY_RANK: dict[Severity, int] = {
+    Severity.INFO: 0,
+    Severity.LOW: 1,
+    Severity.MEDIUM: 2,
+    Severity.HIGH: 3,
+    Severity.CRITICAL: 4,
+}
 
 #: How many times to renumber and retry when a concurrent scan takes the same labels.
 #: Small on purpose - a persistent collision means something worse than contention.
@@ -112,12 +122,19 @@ async def _persist_scan(
     scanned: int,
     skipped: int,
 ) -> Scan:
-    """Write the scan and its findings, retrying if another scan took the same labels.
+    """Write the scan, collapsing repeats of the same issue onto one finding.
 
-    Allocation is a read-then-write, so two concurrent scans on one engagement can compute
-    the same ``PVX-NNNN``. The unique constraint on ``(engagement_id, display_id)`` catches
-    it; this recovers from the catch by re-reading and renumbering rather than failing the
-    whole scan.
+    A draft whose dedup key already exists does **not** create a second finding and its
+    evidence is **not** dropped: it is appended to the existing finding as a
+    ``FindingEvidenceRow``, so a finding two adapters reported keeps both evidences (rules
+    PX-DETERMINISM, PX-EVIDENCE). The collapsed finding keeps the worst severity/CVSS of the
+    set, chosen with ``max`` so the result is independent of scan order. A finding a human has
+    marked ``false_positive`` is left untouched - re-scanning it neither duplicates nor
+    resurrects it (the suppression in docs/VALIDATION_and_REFERENCE_SYSTEMS.md §5).
+
+    Allocation is a read-then-write, so two concurrent scans on one engagement can compute the
+    same ``PVX-NNNN``. The unique constraint on ``(engagement_id, display_id)`` catches it; this
+    recovers by re-reading and renumbering rather than failing the whole scan.
 
     Only persistence is retried. The probe phase is deliberately outside this loop: re-running
     it would re-fetch the targets and re-seal the evidence, and an evidence timestamp must
@@ -132,22 +149,37 @@ async def _persist_scan(
         session.add(scan)
         await session.flush()
 
-        already_seen = await _existing_dedup_keys(session, engagement_id)
-        allocated = await _existing_finding_count(session, engagement_id)
+        # Keyed by dedup identity, and updated in place as this run creates findings, so a
+        # second draft with the same key collapses onto the first rather than duplicating it.
+        by_key = await _existing_findings_by_key(session, engagement_id)
+        allocated = len(by_key)
         for draft, stamp in captured:
-            if draft.dedup_key in already_seen:
-                continue
-            already_seen.add(draft.dedup_key)
-            allocated += 1
-            session.add(
-                FindingRow.from_draft(
-                    draft,
-                    engagement_id=engagement_id,
-                    scan_id=scan.id,
-                    display_id=display_id_for(allocated),
-                    stamp=stamp,
+            existing = by_key.get(draft.dedup_key)
+            if existing is not None:
+                if existing.status == FindingStatus.FALSE_POSITIVE:
+                    continue  # suppressed by an earlier human decision
+                session.add(
+                    FindingEvidenceRow.from_draft(
+                        draft,
+                        finding_id=existing.id,
+                        source_adapter=adapter_name,
+                        source_scan_id=scan.id,
+                        stamp=stamp,
+                    )
                 )
+                _keep_worst_severity(existing, draft)
+                session.add(existing)
+                continue
+            allocated += 1
+            new_row = FindingRow.from_draft(
+                draft,
+                engagement_id=engagement_id,
+                scan_id=scan.id,
+                display_id=display_id_for(allocated),
+                stamp=stamp,
             )
+            session.add(new_row)
+            by_key[draft.dedup_key] = new_row
 
         scan.targets_scanned = scanned
         scan.targets_skipped_out_of_scope = skipped
@@ -173,19 +205,23 @@ async def _persist_scan(
     )
 
 
-async def _existing_finding_count(session: AsyncSession, engagement_id: uuid.UUID) -> int:
-    """How many findings the engagement already has, which is the allocation high-water mark."""
-    rows = (
-        await session.exec(select(FindingRow).where(FindingRow.engagement_id == engagement_id))
-    ).all()
-    return len(rows)
+def _keep_worst_severity(row: FindingRow, draft: FindingDraft) -> None:
+    """Raise a collapsed finding to the worst severity/CVSS seen, deterministically.
+
+    ``max`` over the pair is order-independent, so the finding's severity does not depend on
+    which adapter ran first (rule PX-DETERMINISM)."""
+    if _SEVERITY_RANK[draft.severity] > _SEVERITY_RANK[row.severity]:
+        row.severity = draft.severity
+    if draft.cvss is not None and (row.cvss is None or draft.cvss > row.cvss):
+        row.cvss = draft.cvss
 
 
-async def _existing_dedup_keys(
+async def _existing_findings_by_key(
     session: AsyncSession, engagement_id: uuid.UUID
-) -> set[tuple[str, str]]:
-    """Identities already recorded for this engagement, so a rescan does not duplicate."""
+) -> dict[tuple[str, str, str], FindingRow]:
+    """The engagement's findings indexed by dedup identity, so a repeat collapses onto the
+    finding already recorded. ``len`` is the display-id allocation high-water mark."""
     rows = (
         await session.exec(select(FindingRow).where(FindingRow.engagement_id == engagement_id))
     ).all()
-    return {(row.target, row.title) for row in rows}
+    return {row.dedup_key: row for row in rows}

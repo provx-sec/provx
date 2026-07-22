@@ -27,6 +27,7 @@ from provx_sdk.findings import (
     FindingStatus,
     Module,
     Severity,
+    dedup_key,
     validate_attack_techniques,
 )
 from sqlalchemy import DateTime, UniqueConstraint
@@ -115,6 +116,15 @@ class FindingRow(SQLModel, table=True):
     epss: float | None = Field(default=None)
     confidence: Confidence = Field(default=Confidence.MEDIUM)
     status: FindingStatus = Field(default=FindingStatus.NEW)
+    # Canonical dedup identity and its per-instance location; the pipeline collapses drafts
+    # that share these onto one finding (see scan_runner._persist_scan).
+    rule_id: str | None = Field(default=None, index=True)
+    location: str | None = Field(default=None)
+    # Whether this finding belongs in the client-facing report; a human can exclude one.
+    in_report: bool = Field(default=True)
+    # Set when a human marks this a false positive, so it can later seed a regression test
+    # (docs/VALIDATION_and_REFERENCE_SYSTEMS.md §5). The generator itself is not built yet.
+    regression_intent: bool = Field(default=False)
     attack_techniques: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     remediation: str | None = Field(default=None)
     evidence_tool_output: str | None = Field(default=None)
@@ -154,6 +164,8 @@ class FindingRow(SQLModel, table=True):
             severity=draft.severity,
             cvss=draft.cvss,
             confidence=draft.confidence,
+            rule_id=draft.rule_id,
+            location=draft.location,
             attack_techniques=validate_attack_techniques(list(draft.attack_techniques)),
             remediation=draft.remediation,
             evidence_tool_output=(
@@ -165,6 +177,17 @@ class FindingRow(SQLModel, table=True):
             evidence_reproduction_cmd=evidence.reproduction_cmd if evidence else None,
             evidence_sha256=stamp.sha256,
             captured_at=stamp.captured_at,
+        )
+
+    @property
+    def dedup_key(self) -> tuple[str, str, str]:
+        """This stored finding's dedup identity, computed identically to a draft's so a
+        re-scan collapses onto it rather than duplicating it."""
+        return dedup_key(
+            rule_id=self.rule_id,
+            title=self.title,
+            target=self.target,
+            location=self.location,
         )
 
     def to_contract(self) -> Finding:
@@ -180,6 +203,9 @@ class FindingRow(SQLModel, table=True):
             epss=self.epss,
             confidence=self.confidence,
             status=self.status,
+            rule_id=self.rule_id,
+            location=self.location,
+            in_report=self.in_report,
             attack_techniques=list(self.attack_techniques),
             remediation=self.remediation,
             evidence=Evidence(
@@ -192,3 +218,79 @@ class FindingRow(SQLModel, table=True):
                 reproduction_cmd=self.evidence_reproduction_cmd,
             ),
         )
+
+
+class FindingEvidenceRow(SQLModel, table=True):
+    """An additional evidence reference for a finding beyond its primary (inline) one.
+
+    When dedup collapses the same issue from a second adapter or scan onto one finding, that
+    adapter's evidence is appended here rather than dropped - so a finding three tools reported
+    keeps all three evidences (rules PX-EVIDENCE, PX-DETERMINISM). The finding's own inline
+    evidence is the first reference; these rows are references two onward. Insert-only: a
+    correction is a new row, never an update or delete.
+    """
+
+    __tablename__ = "finding_evidence"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    finding_id: uuid.UUID = Field(foreign_key="finding.id", index=True)
+    # Which adapter and scan contributed this evidence, so provenance survives the collapse.
+    source_adapter: str
+    source_scan_id: uuid.UUID = Field(foreign_key="scan.id", index=True)
+    tool_output: str | None = Field(default=None)
+    matched_rule: str | None = Field(default=None)
+    reproduction_cmd: str | None = Field(default=None)
+    sha256: str
+    captured_at: datetime = Field(sa_column=_timestamp_column())
+
+    @classmethod
+    def from_draft(
+        cls,
+        draft: FindingDraft,
+        *,
+        finding_id: uuid.UUID,
+        source_adapter: str,
+        source_scan_id: uuid.UUID,
+        stamp: EvidenceSeal,
+    ) -> FindingEvidenceRow:
+        """Build an appended evidence row from a collapsed draft, encrypting tool output at
+        rest exactly as the primary evidence is (rule PX-SECRETS)."""
+        evidence = draft.evidence
+        return cls(
+            finding_id=finding_id,
+            source_adapter=source_adapter,
+            source_scan_id=source_scan_id,
+            tool_output=(
+                encrypt_evidence(evidence.tool_output)
+                if evidence and evidence.tool_output is not None
+                else None
+            ),
+            matched_rule=evidence.matched_rule if evidence else None,
+            reproduction_cmd=evidence.reproduction_cmd if evidence else None,
+            sha256=stamp.sha256,
+            captured_at=stamp.captured_at,
+        )
+
+
+class FindingEventRow(SQLModel, table=True):
+    """An append-only audit entry for one state-changing action on a finding.
+
+    Covers both a validation-lifecycle transition and an in-report toggle. Every such action
+    writes exactly one row and nothing is ever updated or deleted, so the finding's history is
+    reconstructable and tamper-evident (rule PX-EVIDENCE).
+    """
+
+    __tablename__ = "finding_event"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    finding_id: uuid.UUID = Field(foreign_key="finding.id", index=True)
+    # "status_change" or "in_report_toggle".
+    event_type: str
+    from_status: FindingStatus | None = Field(default=None)
+    to_status: FindingStatus | None = Field(default=None)
+    in_report: bool | None = Field(default=None)
+    # Who performed the action. No auth yet, so this is caller-supplied and unauthenticated;
+    # RBAC binds it to a real principal in a later phase.
+    actor: str | None = Field(default=None)
+    note: str | None = Field(default=None)
+    created_at: datetime = Field(default_factory=_now, sa_column=_timestamp_column())

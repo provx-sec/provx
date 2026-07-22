@@ -60,7 +60,8 @@ def test_hostile_scan_output_is_escaped_not_executed(make_engagement: Engagement
 def test_empty_engagement_renders_without_a_table(make_engagement: EngagementFactory) -> None:
     html = render_report(make_engagement(), [])
 
-    assert "No findings recorded" in html
+    assert "No findings have been human-validated yet." in html
+    assert "No unvalidated findings are currently in-report." in html
     assert "Machine-found, unvalidated" in html
 
 
@@ -70,7 +71,26 @@ def test_report_reports_the_finding_count(make_engagement: EngagementFactory) ->
         [make_finding(), make_finding(display_id="PVX-0002", title="Missing X-Frame-Options")],
     )
 
-    assert "Findings (2)" in html
+    # Both default to NEW, so they sit in the machine-found section.
+    assert "Machine-found, unvalidated (2)" in html
+    assert "Human-validated findings (0)" in html
+
+
+def test_validated_finding_is_separated_from_machine_found(
+    make_engagement: EngagementFactory,
+) -> None:
+    from provx_sdk.findings import FindingStatus
+
+    html = render_report(
+        make_engagement(),
+        [
+            make_finding(status=FindingStatus.VALIDATED),
+            make_finding(display_id="PVX-0002", title="Missing X-Frame-Options"),
+        ],
+    )
+
+    assert "Human-validated findings (1)" in html
+    assert "Machine-found, unvalidated (1)" in html
 
 
 def test_missing_cvss_renders_a_placeholder_rather_than_none(

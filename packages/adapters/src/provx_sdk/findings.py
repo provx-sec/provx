@@ -34,6 +34,36 @@ DISPLAY_ID_PATTERN = r"^PVX-\d{4,}$"
 ATTACK_TECHNIQUE_PATTERN = r"^T\d{4}(\.\d{3})?$"
 
 
+def normalize_target(target: str) -> str:
+    """Collapse a target URL to a stable dedup token: lowercase, no trailing slash.
+
+    Dedup identity must not depend on incidental casing or a trailing slash, or the same
+    issue on ``https://Example.com`` and ``https://example.com/`` would split into two
+    findings (rule PX-DETERMINISM).
+    """
+    return target.strip().rstrip("/").lower()
+
+
+def normalize_title(title: str) -> str:
+    """The fallback issue identity when an adapter sets no ``rule_id``: casefolded, with runs
+    of whitespace collapsed, so display-string wording drives dedup deterministically."""
+    return " ".join(title.split()).casefold()
+
+
+def dedup_key(
+    *, rule_id: str | None, title: str, target: str, location: str | None
+) -> tuple[str, str, str]:
+    """The deterministic identity two findings share when they are the same issue.
+
+    ``(rule_id, normalized target, location)``, where the identity is the adapter-supplied
+    ``rule_id`` when present else the normalized title. Defined once here so a draft and a
+    stored finding compute it identically - the pipeline collapses on equal keys (rules
+    PX-DETERMINISM, PX-ATTACK).
+    """
+    identity = rule_id if rule_id else normalize_title(title)
+    return (identity, normalize_target(target), location or "")
+
+
 def validate_attack_techniques(techniques: list[str]) -> list[str]:
     """Reject any value that is not a MITRE ATT&CK technique id.
 
@@ -131,6 +161,14 @@ class Finding(BaseModel):
     epss: float | None = Field(default=None, ge=0.0, le=1.0)
     confidence: Confidence = Confidence.MEDIUM
     status: FindingStatus = FindingStatus.NEW
+    # Canonical, cross-adapter issue identity used for dedup. Optional: when an adapter does
+    # not set it, the pipeline falls back to the normalized title (see FindingDraft.dedup_key).
+    rule_id: str | None = None
+    # Where within the target the issue lives (e.g. a cookie name), so per-instance findings
+    # do not collapse into one. Empty/None means "the target itself".
+    location: str | None = None
+    # True while this finding belongs in the client-facing report; a human can exclude one.
+    in_report: bool = True
     # MITRE ATT&CK technique IDs (e.g. "T1190"). Stored as plain strings; "MITRE ATT&CK" is
     # only ever a display label, never an identifier. Named `attack_techniques` because
     # `att&ck` is not a valid identifier. At least one is expected once a finding is final.
@@ -163,6 +201,11 @@ class FindingDraft(BaseModel):
     attack_techniques: list[str] = Field(default_factory=list)
     evidence: Evidence | None = None
     remediation: str | None = None
+    # Canonical issue identity and location; see the same fields on Finding. Setting a shared
+    # rule_id across adapters is how two tools that find the same issue collapse into one
+    # finding instead of relying on identical display strings.
+    rule_id: str | None = None
+    location: str | None = None
 
     @field_validator("attack_techniques")
     @classmethod
@@ -170,9 +213,19 @@ class FindingDraft(BaseModel):
         return validate_attack_techniques(techniques)
 
     @property
-    def dedup_key(self) -> tuple[str, str]:
-        """Deterministic identity used to collapse repeats of the same issue (PX-ATTACK)."""
-        return (self.target, self.title)
+    def dedup_key(self) -> tuple[str, str, str]:
+        """Deterministic identity used to collapse repeats of the same issue.
+
+        Two adapters that report the same issue collapse into one finding that carries both
+        their evidence, while two genuinely different issues (or the same issue at two
+        locations, e.g. two cookies) stay separate. See :func:`dedup_key`.
+        """
+        return dedup_key(
+            rule_id=self.rule_id,
+            title=self.title,
+            target=self.target,
+            location=self.location,
+        )
 
     def to_finding(self, display_id: str) -> Finding:
         """Promote this draft into a full Finding under the given per-engagement label."""

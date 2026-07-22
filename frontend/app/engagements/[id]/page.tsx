@@ -68,9 +68,11 @@ export default async function EngagementFindingsPage({
                 <th className="p-2">ID</th>
                 <th className="p-2">Title</th>
                 <th className="p-2">Target</th>
+                <th className="p-2">Status</th>
                 <th className="p-2">Severity</th>
                 <th className="p-2">CVSS</th>
                 <th className="p-2">ATT&amp;CK</th>
+                <th className="p-2">Evidence</th>
               </tr>
             </thead>
             <tbody>
@@ -79,9 +81,13 @@ export default async function EngagementFindingsPage({
                   <td className="p-2 font-mono text-xs">{finding.display_id}</td>
                   <td className="p-2">{finding.title}</td>
                   <td className="p-2 break-all">{finding.target}</td>
+                  {/* Status makes the machine-vs-validated distinction visible in the console
+                      too, not only in the report (rule PX-HUMAN). */}
+                  <td className="p-2">{finding.status}</td>
                   <td className="p-2">{finding.severity}</td>
                   <td className="p-2">{finding.cvss ?? "-"}</td>
                   <td className="p-2">{finding.attack_techniques.join(", ") || "-"}</td>
+                  <td className="p-2">{finding.evidence_ref_count}</td>
                 </tr>
               ))}
             </tbody>

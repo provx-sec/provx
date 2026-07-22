@@ -76,10 +76,36 @@ class FindingRead(BaseModel):
     cvss: float | None
     confidence: Confidence
     status: FindingStatus
+    # Whether this finding is included in the client-facing report.
+    in_report: bool
+    # How many evidence references back this finding: 1 (its primary evidence) plus one per
+    # adapter/scan that corroborated it and was collapsed in by dedup.
+    evidence_ref_count: int
     attack_techniques: list[str]
     remediation: str | None
     evidence_sha256: str
     captured_at: datetime
+
+
+class FindingTransitionRequest(BaseModel):
+    """Request body to move a finding through its validation lifecycle."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to_status: FindingStatus
+    # No auth yet, so the actor is caller-supplied; RBAC binds it to a principal later.
+    actor: str | None = Field(default=None, max_length=200)
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class InReportRequest(BaseModel):
+    """Request body to include or exclude a finding from the client-facing report."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    in_report: bool
+    actor: str | None = Field(default=None, max_length=200)
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class ErrorResponse(BaseModel):
