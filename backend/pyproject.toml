@@ -21,6 +21,8 @@ dependencies = [
     "greenlet>=3",
     "jinja2>=3.1",
     "pydantic-settings>=2.3",
+    # Evidence-at-rest encryption (AES-256-GCM). Apache-2.0 / BSD, PX-FREE clean.
+    "cryptography>=42",
 ]
 
 [project.optional-dependencies]

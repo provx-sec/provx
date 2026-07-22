@@ -10,12 +10,20 @@ of that engagement, not just the one finding. These pin the contract at the poin
 
 from __future__ import annotations
 
+import hashlib
 import re
 import uuid
 
 import pytest
 from provx_sdk.evidence import seal
-from provx_sdk.findings import DISPLAY_ID_PATTERN, Confidence, FindingDraft, Module, Severity
+from provx_sdk.findings import (
+    DISPLAY_ID_PATTERN,
+    Confidence,
+    Evidence,
+    FindingDraft,
+    Module,
+    Severity,
+)
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -90,6 +98,32 @@ def test_valid_row_carries_the_evidence_seal() -> None:
 
     assert len(row.evidence_sha256) == 64
     assert row.captured_at.tzinfo is not None
+
+
+def test_evidence_is_stored_encrypted_and_round_trips_with_a_matching_seal() -> None:
+    # A cookie value that already passed boundary redaction still must not sit in the DB as
+    # plaintext: the stored column is ciphertext, and reading it back reproduces the exact
+    # bytes the capture-time seal was taken over (PX-SECRETS, PX-EVIDENCE).
+    envelope = '{"set_cookies": ["sid=<redacted:sha256:6ca13d52>; Path=/"]}'
+    draft = make_draft(evidence=Evidence(tool_output=envelope, matched_rule="cookie_flags"))
+    stamp = seal(envelope)
+
+    row = FindingRow.from_draft(
+        draft,
+        engagement_id=uuid.uuid4(),
+        scan_id=uuid.uuid4(),
+        display_id="PVX-0001",
+        stamp=stamp,
+    )
+
+    assert row.evidence_tool_output is not None
+    assert row.evidence_tool_output.startswith("enc:v1:")
+    assert envelope not in row.evidence_tool_output
+
+    contract = row.to_contract()
+    assert contract.evidence is not None
+    assert contract.evidence.tool_output == envelope
+    assert hashlib.sha256(envelope.encode("utf-8")).hexdigest() == row.evidence_sha256
 
 
 # --- KI-002 regression: concurrent allocation of the same display_id ------------------
