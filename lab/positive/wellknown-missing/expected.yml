@@ -1,0 +1,7 @@
+version: 1
+target: http://lab-wellknown-missing
+kind: positive
+adapter: wellknown
+expect:
+  - id: wellknown:security-txt-missing
+    min_severity: low

@@ -1,0 +1,13 @@
+# Accuracy expectations for the insecure-transport positive target.
+# Every check listed here MUST fire; anything else the tls adapter reports is a false
+# positive. See ../../README.md and docs/VALIDATION_and_REFERENCE_SYSTEMS.md.
+
+version: 1
+target: http://lab-tls-insecure
+kind: positive
+adapter: tls
+expect:
+  - id: tls:hsts-missing
+    min_severity: low
+  - id: tls:no-https-redirect
+    min_severity: low
