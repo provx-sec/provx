@@ -1,0 +1,13 @@
+{
+  "final_url": "http://lab-tls-secure",
+  "headers": {
+    "content-length": "162",
+    "location": "https://lab-tls-secure/",
+    "server": "nginx/1.27.4",
+    "strict-transport-security": "max-age=31536000; includeSubDomains"
+  },
+  "redirect_location": "https://lab-tls-secure/",
+  "status_code": 301,
+  "target": "http://lab-tls-secure",
+  "tls": null
+}

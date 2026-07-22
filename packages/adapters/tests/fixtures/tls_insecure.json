@@ -1,0 +1,11 @@
+{
+  "final_url": "http://lab-tls-insecure",
+  "headers": {
+    "content-type": "text/html; charset=utf-8",
+    "server": "nginx/1.27.4"
+  },
+  "redirect_location": null,
+  "status_code": 200,
+  "target": "http://lab-tls-insecure",
+  "tls": null
+}

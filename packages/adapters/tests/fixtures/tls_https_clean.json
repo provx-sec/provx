@@ -1,0 +1,17 @@
+{
+  "final_url": "https://lab-tls-clean",
+  "headers": {
+    "server": "nginx/1.27.4",
+    "strict-transport-security": "max-age=31536000; includeSubDomains"
+  },
+  "redirect_location": null,
+  "status_code": 200,
+  "target": "https://lab-tls-clean",
+  "tls": {
+    "cert_error": null,
+    "cipher": "TLS_AES_256_GCM_SHA384",
+    "error": null,
+    "not_after_epoch": 4102444800.0,
+    "protocol": "TLSv1.3"
+  }
+}
