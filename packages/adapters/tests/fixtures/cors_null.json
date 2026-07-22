@@ -1,0 +1,9 @@
+{
+  "final_url": "http://api.example.test",
+  "headers": {
+    "access-control-allow-origin": "null",
+    "content-type": "application/json"
+  },
+  "status_code": 200,
+  "target": "http://api.example.test"
+}

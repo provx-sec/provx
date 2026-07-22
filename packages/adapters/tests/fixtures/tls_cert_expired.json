@@ -1,0 +1,17 @@
+{
+  "final_url": "https://lab-tls-expired",
+  "headers": {
+    "server": "nginx/1.27.4",
+    "strict-transport-security": "max-age=31536000; includeSubDomains"
+  },
+  "redirect_location": null,
+  "status_code": 200,
+  "target": "https://lab-tls-expired",
+  "tls": {
+    "cert_error": "expired",
+    "cipher": null,
+    "error": null,
+    "not_after_epoch": null,
+    "protocol": null
+  }
+}

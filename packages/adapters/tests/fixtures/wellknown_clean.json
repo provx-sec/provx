@@ -1,0 +1,6 @@
+{
+  "body": "Contact: mailto:security@lab-wellknown-present\nExpires: 2027-01-01T00:00:00.000Z\nPreferred-Languages: en\n",
+  "security_txt_url": "http://lab-wellknown-present/.well-known/security.txt",
+  "status_code": 200,
+  "target": "http://lab-wellknown-present"
+}

@@ -22,6 +22,10 @@ dev = [
 # itself here so the core can load it without any core edits (see README.md).
 [project.entry-points."provx.adapters"]
 security_headers = "provx_sdk.adapters.security_headers:SecurityHeadersAdapter"
+tls = "provx_sdk.adapters.tls_transport:TlsTransportAdapter"
+cookie_flags = "provx_sdk.adapters.cookie_flags:CookieFlagsAdapter"
+cors = "provx_sdk.adapters.cors:CorsAdapter"
+wellknown = "provx_sdk.adapters.wellknown:WellKnownAdapter"
 
 # Deterministic playbooks (the "brain") are discovered via this group, alongside adapters.
 [project.entry-points."provx.playbooks"]
