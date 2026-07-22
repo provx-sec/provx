@@ -1,8 +1,8 @@
-# Accuracy expectations for the hardened clean target.
+# Clean transport baseline for the tls adapter.
 # The false-positive tripwire: any finding at all on this target fails the gate.
 
 version: 1
-target: http://lab-hardened
+target: http://lab-tls-secure
 kind: negative
-adapter: security_headers
+adapter: tls
 expect_none: true

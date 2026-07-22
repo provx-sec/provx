@@ -100,6 +100,78 @@ services:
     networks: [lab]
     restart: unless-stopped
 
+  lab-tls-insecure:
+    profiles: [lab]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./lab/positive/tls-insecure/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./lab/positive/tls-insecure/index.html:/usr/share/nginx/html/index.html:ro
+    networks: [lab]
+    restart: unless-stopped
+
+  lab-tls-secure:
+    profiles: [lab]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./lab/clean/tls-secure/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [lab]
+    restart: unless-stopped
+
+  lab-cookies-insecure:
+    profiles: [lab]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./lab/positive/cookies-insecure/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./lab/positive/cookies-insecure/index.html:/usr/share/nginx/html/index.html:ro
+    networks: [lab]
+    restart: unless-stopped
+
+  lab-cookies-secure:
+    profiles: [lab]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./lab/clean/cookies-secure/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./lab/clean/cookies-secure/index.html:/usr/share/nginx/html/index.html:ro
+    networks: [lab]
+    restart: unless-stopped
+
+  lab-cors-wildcard:
+    profiles: [lab]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./lab/positive/cors-wildcard/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./lab/positive/cors-wildcard/index.html:/usr/share/nginx/html/index.html:ro
+    networks: [lab]
+    restart: unless-stopped
+
+  lab-cors-safe:
+    profiles: [lab]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./lab/clean/cors-safe/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./lab/clean/cors-safe/index.html:/usr/share/nginx/html/index.html:ro
+    networks: [lab]
+    restart: unless-stopped
+
+  lab-wellknown-missing:
+    profiles: [lab]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./lab/positive/wellknown-missing/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./lab/positive/wellknown-missing/index.html:/usr/share/nginx/html/index.html:ro
+    networks: [lab]
+    restart: unless-stopped
+
+  lab-wellknown-present:
+    profiles: [lab]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./lab/clean/wellknown-present/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./lab/clean/wellknown-present/index.html:/usr/share/nginx/html/index.html:ro
+      - ./lab/clean/wellknown-present/security.txt:/usr/share/nginx/html/.well-known/security.txt:ro
+    networks: [lab]
+    restart: unless-stopped
+
   # The accuracy gate itself. Runs on the internal lab network because that is the only
   # place the targets are reachable from - they publish no ports to the host.
   accuracy:
@@ -111,7 +183,17 @@ services:
     entrypoint: ["python", "/app/lab/harness.py"]
     volumes:
       - ./lab:/app/lab:ro
-    depends_on: [lab-missing-headers, lab-hardened]
+    depends_on:
+      - lab-missing-headers
+      - lab-hardened
+      - lab-tls-insecure
+      - lab-tls-secure
+      - lab-cookies-insecure
+      - lab-cookies-secure
+      - lab-cors-wildcard
+      - lab-cors-safe
+      - lab-wellknown-missing
+      - lab-wellknown-present
     networks: [lab]
 
 networks:

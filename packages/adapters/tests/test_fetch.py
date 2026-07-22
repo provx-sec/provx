@@ -11,17 +11,23 @@ coverage, that one because a stub can encode the same mistaken assumption as the
 
 from __future__ import annotations
 
+import ssl
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 
 import httpx
 import pytest
+from provx_sdk import fetch
 from provx_sdk.fetch import (
     MISSING_LOCATION,
     OUT_OF_SCOPE_REDIRECT,
     TOO_MANY_REDIRECTS,
     OutOfScopeRequest,
+    TlsHandshake,
+    _hash_tag,
     fetch_within_scope,
+    probe_tls_within_scope,
+    redact_cookie_value,
     redact_url,
 )
 from provx_sdk.scope import ScopePolicy
@@ -216,3 +222,143 @@ async def test_negative_max_redirects_is_a_clean_error_not_an_internal_one(
         await fetch_within_scope("https://app.example.com/", IN_SCOPE, max_redirects=bad)
 
     assert net.seen == []
+
+
+async def test_outcome_exposes_an_unfollowed_redirect_location(net: MockNet) -> None:
+    # A transport check needs to see where an HTTP URL intends to upgrade without following
+    # into a host that may not answer.
+    net.routes["https://app.example.com/"] = redirect("https://app.example.com/secure", 301)
+
+    outcome = await fetch_within_scope("https://app.example.com/", IN_SCOPE, max_redirects=0)
+
+    assert outcome.redirect_location == "https://app.example.com/secure"
+    assert outcome.stopped_reason == TOO_MANY_REDIRECTS
+
+
+async def test_a_non_redirect_response_carries_no_redirect_location(net: MockNet) -> None:
+    net.routes["https://app.example.com/"] = ok(server="nginx")
+
+    outcome = await fetch_within_scope("https://app.example.com/", IN_SCOPE)
+
+    assert outcome.redirect_location is None
+
+
+async def test_outcome_captures_the_response_body(net: MockNet) -> None:
+    # A content-inspecting passive check reads the body the boundary already fetched rather
+    # than opening a second request off the one egress path (PX-EGRESS).
+    net.routes["https://app.example.com/.well-known/security.txt"] = httpx.Response(
+        200, text="Contact: mailto:security@example.com\n"
+    )
+
+    outcome = await fetch_within_scope("https://app.example.com/.well-known/security.txt", IN_SCOPE)
+
+    assert "Contact: mailto:security@example.com" in outcome.body
+
+
+async def test_outcome_preserves_each_set_cookie_separately_and_redacts_the_value(
+    net: MockNet,
+) -> None:
+    # dict(headers) would comma-merge these into one unsplittable string (a comma is legal
+    # inside an Expires date); the cookie check depends on them staying distinct. The boundary
+    # also redacts the value while keeping the name + attributes (PX-SECRETS).
+    net.routes["https://app.example.com/"] = httpx.Response(
+        200,
+        headers=[
+            (b"set-cookie", b"sid=s3cr3t; Path=/; Secure; HttpOnly"),
+            (b"set-cookie", b"theme=dark; Expires=Wed, 09 Jun 2021 10:18:14 GMT"),
+        ],
+    )
+
+    outcome = await fetch_within_scope("https://app.example.com/", IN_SCOPE)
+
+    sid, theme = outcome.set_cookies
+    assert sid == f"sid={_hash_tag('s3cr3t')}; Path=/; Secure; HttpOnly"
+    assert theme == f"theme={_hash_tag('dark')}; Expires=Wed, 09 Jun 2021 10:18:14 GMT"
+    # The live values are gone; the attributes a cookie check reads are intact.
+    assert "s3cr3t" not in sid and "Secure" in sid and "HttpOnly" in sid
+
+
+async def test_outcome_redacts_sensitive_response_headers(net: MockNet) -> None:
+    # A response that reflects credential material must not survive raw into evidence (PX-SECRETS).
+    net.routes["https://app.example.com/"] = httpx.Response(
+        200,
+        headers=[
+            (b"authorization", b"Bearer eyJhbGciOi.token.value"),
+            (b"set-cookie", b"sid=liveTokenValue; Path=/"),
+            (b"server", b"nginx"),
+        ],
+    )
+
+    outcome = await fetch_within_scope("https://app.example.com/", IN_SCOPE)
+
+    assert outcome.headers["authorization"] == _hash_tag("Bearer eyJhbGciOi.token.value")
+    assert outcome.headers["set-cookie"] == _hash_tag("sid=liveTokenValue; Path=/")
+    # A non-sensitive header is untouched.
+    assert outcome.headers["server"] == "nginx"
+    assert "liveTokenValue" not in outcome.body + repr(outcome.headers) + repr(outcome.set_cookies)
+
+
+def test_redaction_helpers_are_deterministic_and_value_free() -> None:
+    # Same secret -> same tag (evidentiary integrity); the secret itself never appears.
+    assert _hash_tag("t0ken") == _hash_tag("t0ken")
+    assert "t0ken" not in _hash_tag("t0ken")
+    # The value in the name=value head is redacted; every attribute after the first ';' is kept.
+    redacted = redact_cookie_value("sid=abc; Path=/; SameSite=Lax")
+    assert redacted == f"sid={_hash_tag('abc')}; Path=/; SameSite=Lax"
+    # A first segment with no '=' is not a name=value pair, so there is nothing to redact.
+    assert redact_cookie_value("=only; Path=/") == f"={_hash_tag('only')}; Path=/"
+    assert redact_cookie_value("bareword") == "bareword"
+
+
+# --- probe_tls_within_scope: the second scope-checked egress path (PX-EGRESS/PX-SCOPE) ----
+
+
+async def test_tls_probe_refuses_an_out_of_scope_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[object] = []
+    monkeypatch.setattr(fetch, "_tls_handshake", lambda *args: calls.append(args))
+
+    with pytest.raises(OutOfScopeRequest):
+        await probe_tls_within_scope("https://evil.test/", IN_SCOPE)
+
+    assert calls == []
+
+
+async def test_tls_probe_parses_host_and_defaults_to_port_443(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def stub(host: str, port: int, timeout: float) -> TlsHandshake:
+        seen.update(host=host, port=port, timeout=timeout)
+        return TlsHandshake(host=host, port=port, protocol="TLSv1.3")
+
+    monkeypatch.setattr(fetch, "_tls_handshake", stub)
+
+    result = await probe_tls_within_scope("https://app.example.com/x", IN_SCOPE, timeout=4.0)
+
+    assert seen == {"host": "app.example.com", "port": 443, "timeout": 4.0}
+    assert result.protocol == "TLSv1.3"
+
+
+async def test_tls_probe_honours_an_explicit_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def stub(host: str, port: int, timeout: float) -> TlsHandshake:
+        seen["port"] = port
+        return TlsHandshake(host=host, port=port)
+
+    monkeypatch.setattr(fetch, "_tls_handshake", stub)
+
+    await probe_tls_within_scope("https://app.example.com:8443/", IN_SCOPE)
+
+    assert seen["port"] == 8443
+
+
+def test_certificate_verification_codes_map_to_stable_labels() -> None:
+    exc = ssl.SSLCertVerificationError()
+    exc.verify_code = 10
+    assert fetch._classify_cert_error(exc) == "expired"
+    exc.verify_code = 18
+    assert fetch._classify_cert_error(exc) == "self_signed"
+    exc.verify_code = 99
+    assert fetch._classify_cert_error(exc) == "invalid"

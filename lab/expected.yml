@@ -11,6 +11,8 @@
 #   version: 1
 #   target: http://<compose-service-name>
 #   kind: positive | negative
+#   adapter: security_headers     # which adapter owns this target; the gate scores one
+#                                 # adapter per run and skips targets owned by others
 #   expect:                       # positive targets: every entry MUST be found
 #     - id: <adapter>:<check>     # matches Finding.evidence.matched_rule
 #       min_severity: low         # optional floor; a weaker finding is not a hit
@@ -20,8 +22,16 @@ version: 1
 
 # Deliberately-vulnerable targets - each lists the findings that SHOULD be detected.
 positive:
-  - lab/positive/missing-headers/expected.yml
+  - lab/positive/missing-headers/expected.yml    # adapter: security_headers
+  - lab/positive/tls-insecure/expected.yml       # adapter: tls
+  - lab/positive/cookies-insecure/expected.yml   # adapter: cookie_flags
+  - lab/positive/cors-wildcard/expected.yml      # adapter: cors
+  - lab/positive/wellknown-missing/expected.yml  # adapter: wellknown
 
 # Known-clean baselines - must produce ZERO findings (the false-positive tripwire).
 negative:
-  - lab/clean/hardened/expected.yml
+  - lab/clean/hardened/expected.yml              # adapter: security_headers
+  - lab/clean/tls-secure/expected.yml            # adapter: tls
+  - lab/clean/cookies-secure/expected.yml        # adapter: cookie_flags
+  - lab/clean/cors-safe/expected.yml             # adapter: cors
+  - lab/clean/wellknown-present/expected.yml     # adapter: wellknown

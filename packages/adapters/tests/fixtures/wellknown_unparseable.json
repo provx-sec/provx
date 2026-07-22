@@ -1,0 +1,6 @@
+{
+  "body": "<!doctype html>\n<html><body><h1>Welcome</h1><p>Nothing to see here.</p></body></html>\n",
+  "security_txt_url": "http://example.test/.well-known/security.txt",
+  "status_code": 200,
+  "target": "http://example.test"
+}

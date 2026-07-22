@@ -1,0 +1,5 @@
+version: 1
+target: http://lab-cookies-secure
+kind: negative
+adapter: cookie_flags
+expect_none: true

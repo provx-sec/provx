@@ -1,0 +1,5 @@
+version: 1
+target: http://lab-cors-safe
+kind: negative
+adapter: cors
+expect_none: true

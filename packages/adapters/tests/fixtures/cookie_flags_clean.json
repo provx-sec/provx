@@ -1,0 +1,8 @@
+{
+  "final_url": "http://lab-cookies-secure",
+  "set_cookies": [
+    "sid=<redacted:sha256:6ca13d52ca70c883e0f0bb101e425a89e8624de51db2d2392593af6a84118090>; Path=/; Secure; HttpOnly; SameSite=Strict"
+  ],
+  "status_code": 200,
+  "target": "http://lab-cookies-secure"
+}

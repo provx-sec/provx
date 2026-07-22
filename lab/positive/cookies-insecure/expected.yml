@@ -1,0 +1,11 @@
+version: 1
+target: http://lab-cookies-insecure
+kind: positive
+adapter: cookie_flags
+expect:
+  - id: cookie_flags:secure-missing
+    min_severity: low
+  - id: cookie_flags:httponly-missing
+    min_severity: low
+  - id: cookie_flags:samesite-missing
+    min_severity: low
