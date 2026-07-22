@@ -5,6 +5,7 @@
 version: 1
 target: http://lab-missing-headers
 kind: positive
+adapter: security_headers
 expect:
   - id: security_headers:content-security-policy
     min_severity: low

@@ -42,6 +42,10 @@ class Manifest:
     # Lab targets on a local/loopback address need the scope engine's dangerous-range
     # override; compose-networked targets (the default) do not.
     allow_dangerous_ranges: bool = False
+    # Which adapter owns this target. One gate run scores one adapter, so a target is only
+    # probed by the adapter named here (defaults to the first shipped adapter for manifests
+    # written before adapters were mixed).
+    adapter: str = "security_headers"
 
     @property
     def expected_ids(self) -> set[str]:
@@ -81,6 +85,7 @@ def load_manifests(root: Path) -> list[Manifest]:
                 expect=list(data.get("expect") or []),
                 expect_none=bool(data.get("expect_none", False)),
                 allow_dangerous_ranges=bool(data.get("allow_dangerous_ranges", False)),
+                adapter=str(data.get("adapter", "security_headers")),
             )
         )
     return manifests
@@ -154,10 +159,17 @@ def policy_for(manifest: Manifest) -> ScopePolicy:
 
 
 async def run(root: Path, adapter_name: str) -> list[Score]:
-    """Probe every lab target and score the results."""
+    """Probe the lab targets this adapter owns and score the results.
+
+    A target is scored only by the adapter named in its manifest: probing a TLS target with
+    the header adapter (or vice versa) would report findings the oracle never listed, so the
+    run stays scoped to one adapter's targets.
+    """
     adapter = load_adapter(adapter_name)
     scores: list[Score] = []
     for manifest in load_manifests(root):
+        if manifest.adapter != adapter_name:
+            continue
         raw = await adapter.probe(manifest.target, policy=policy_for(manifest))
         scores.append(score_target(manifest, adapter.parse_output(raw)))
     return scores

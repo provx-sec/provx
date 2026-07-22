@@ -51,11 +51,21 @@ test: ## Run unit + fixture tests
 
 accuracy: ## Score the deterministic checks against the lab targets (TP/FP/FN gate)
 	# --build is not optional: a stale image scores yesterday's code and the gate passes
-	# without having tested anything.
+	# without having tested anything. Each adapter scores only the targets it owns, so the
+	# gate runs once per adapter and fails if either run does.
 	$(COMPOSE) --profile lab build accuracy
-	$(COMPOSE) --profile lab up -d lab-missing-headers lab-hardened
-	$(COMPOSE) --profile lab run --rm accuracy; \
-		status=$$?; $(COMPOSE) --profile lab down; exit $$status
+	$(COMPOSE) --profile lab up -d \
+		lab-missing-headers lab-hardened lab-tls-insecure lab-tls-secure \
+		lab-cookies-insecure lab-cookies-secure lab-cors-wildcard lab-cors-safe \
+		lab-wellknown-missing lab-wellknown-present
+	@status=0; \
+		$(COMPOSE) --profile lab run --rm accuracy --adapter security_headers || status=1; \
+		$(COMPOSE) --profile lab run --rm accuracy --adapter tls || status=1; \
+		$(COMPOSE) --profile lab run --rm accuracy --adapter cookie_flags || status=1; \
+		$(COMPOSE) --profile lab run --rm accuracy --adapter cors || status=1; \
+		$(COMPOSE) --profile lab run --rm accuracy --adapter wellknown || status=1; \
+		$(COMPOSE) --profile lab down; \
+		exit $$status
 
 clean: ## Remove containers, volumes, and build artifacts
 	$(COMPOSE) down -v --remove-orphans

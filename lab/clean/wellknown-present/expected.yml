@@ -1,0 +1,5 @@
+version: 1
+target: http://lab-wellknown-present
+kind: negative
+adapter: wellknown
+expect_none: true

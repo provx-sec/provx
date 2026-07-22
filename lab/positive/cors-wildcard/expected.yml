@@ -1,0 +1,7 @@
+version: 1
+target: http://lab-cors-wildcard
+kind: positive
+adapter: cors
+expect:
+  - id: cors:wildcard-origin
+    min_severity: medium

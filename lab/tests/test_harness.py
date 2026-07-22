@@ -9,11 +9,12 @@ scorer directly with synthetic findings rather than over the network.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from provx_sdk.findings import Evidence, FindingDraft, Module, Severity
 
-from lab.harness import Manifest, group_by_rule, load_manifests, score_target
+from lab.harness import Manifest, group_by_rule, load_manifests, run, score_target
 
 LAB_ROOT = Path(__file__).resolve().parent.parent
 
@@ -96,8 +97,10 @@ def test_lab_manifests_on_disk_load_and_cover_both_cases() -> None:
 
     assert len(manifests) >= 2
     assert kinds == {"positive", "negative"}
-    positive = next(m for m in manifests if m.kind == "positive")
-    assert "security_headers:content-security-policy" in positive.expected_ids
+    # Select the security_headers positive by target rather than by order: more adapters now
+    # own positive manifests, so "the first positive" is no longer necessarily this one.
+    headers_positive = next(m for m in manifests if m.target == "http://lab-missing-headers")
+    assert "security_headers:content-security-policy" in headers_positive.expected_ids
 
 
 # --- KI-001 regression: scoring must not depend on finding order ----------------------
@@ -144,3 +147,64 @@ def test_grouping_keeps_every_instance() -> None:
     grouped = group_by_rule([rule_draft(Severity.HIGH), rule_draft(Severity.INFO)])
 
     assert len(grouped["security_headers:x-frame-options"]) == 2
+
+
+# --- Multiple adapters: each scores only the targets it owns ---------------------------
+
+
+def test_manifests_record_which_adapter_owns_each_target() -> None:
+    by_target = {m.target: m.adapter for m in load_manifests(LAB_ROOT)}
+
+    assert by_target["http://lab-missing-headers"] == "security_headers"
+    assert by_target["http://lab-tls-insecure"] == "tls"
+
+
+class _FakeAdapter:
+    """A no-op adapter that records which targets it was asked to probe."""
+
+    def __init__(self) -> None:
+        self.probed: list[str] = []
+
+    async def probe(self, target: str, *, policy: object) -> str:
+        self.probed.append(target)
+        return "{}"
+
+    def parse_output(self, raw: str) -> list[FindingDraft]:
+        return []
+
+
+def test_run_scores_only_the_named_adapters_targets(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    fake = _FakeAdapter()
+    monkeypatch.setattr("lab.harness.load_adapter", lambda name: fake)
+
+    asyncio.run(run(LAB_ROOT, "tls"))
+
+    assert set(fake.probed) == {"http://lab-tls-insecure", "http://lab-tls-secure"}
+
+
+# --- KI-001 stays fixed for the second adapter's rule ids ------------------------------
+# A second adapter is the collision condition KI-001 warned about; confirm the grouped
+# scorer stays order-independent for tls rule ids too.
+
+
+def tls_manifest() -> Manifest:
+    return Manifest(
+        path=Path("expected.yml"),
+        target="http://lab-tls-insecure",
+        kind="positive",
+        adapter="tls",
+        expect=[{"id": "tls:hsts-missing", "min_severity": "low"}],
+    )
+
+
+def test_tls_rule_ids_score_independently_of_order() -> None:
+    manifest = tls_manifest()
+    high_first = score_target(
+        manifest, [draft("tls:hsts-missing", Severity.MEDIUM), draft("tls:hsts-missing")]
+    )
+    low_first = score_target(
+        manifest, [draft("tls:hsts-missing"), draft("tls:hsts-missing", Severity.MEDIUM)]
+    )
+
+    assert high_first.passed == low_first.passed is True
+    assert high_first.true_positives == low_first.true_positives == {"tls:hsts-missing"}
