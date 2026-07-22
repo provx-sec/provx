@@ -35,6 +35,8 @@ export type Finding = {
   cvss: number | null;
   confidence: string;
   status: string;
+  in_report: boolean;
+  evidence_ref_count: number;
   attack_techniques: string[];
   remediation: string | null;
   evidence_sha256: string;

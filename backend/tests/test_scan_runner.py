@@ -151,19 +151,21 @@ async def test_persist_recovers_when_a_label_is_taken_mid_flight(
     )
     await session.commit()
 
-    # Simulate the losing side of the race: the first attempt reads a stale count of 0 and
-    # therefore allocates PVX-0001, which the unique constraint rejects. The retry re-reads
-    # the true count and renumbers around the squatter.
-    original_count = scan_runner._existing_finding_count
+    # Simulate the losing side of the race: the first attempt reads a stale empty index and
+    # therefore allocates PVX-0001, which the unique constraint rejects. The retry re-reads the
+    # true index and renumbers around the squatter.
+    original_index = scan_runner._existing_findings_by_key
     attempts = {"n": 0}
 
-    async def stale_on_first_read(db: AsyncSession, engagement_id: uuid.UUID) -> int:
+    async def stale_on_first_read(
+        db: AsyncSession, engagement_id: uuid.UUID
+    ) -> dict[tuple[str, str, str], FindingRow]:
         attempts["n"] += 1
         if attempts["n"] == 1:
-            return 0
-        return await original_count(db, engagement_id)
+            return {}
+        return await original_index(db, engagement_id)
 
-    monkeypatch.setattr(scan_runner, "_existing_finding_count", stale_on_first_read)
+    monkeypatch.setattr(scan_runner, "_existing_findings_by_key", stale_on_first_read)
 
     # Read before the call: the retry's rollback expires the ORM object, so touching
     # engagement.id afterwards would trigger lazy IO outside the async context.

@@ -20,48 +20,67 @@
   </style>
 </head>
 <body>
+{% macro findings_table(rows) %}
+<table>
+  <thead>
+    <tr>
+      <th>ID</th><th>Title</th><th>Target</th><th>Status</th><th>Severity</th>
+      <th>CVSS</th><th>ATT&amp;CK</th><th>Confidence</th><th>Remediation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for finding in rows %}
+    <tr>
+      <td><code>{{ finding.display_id }}</code></td>
+      <td>{{ finding.title }}</td>
+      <td>{{ finding.target }}</td>
+      <td>{{ finding.status.value }}</td>
+      <td>{{ finding.severity.value }}</td>
+      <td>{{ '%.1f' % finding.cvss if finding.cvss is not none else '-' }}</td>
+      <td>{{ finding.attack_techniques | join(', ') or '-' }}</td>
+      <td>{{ finding.confidence.value }}</td>
+      <td>{{ finding.remediation or '-' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
   <h1>{{ engagement.name }}</h1>
   <p class="meta">
     Engagement {{ engagement.id }} &middot; mode {{ engagement.mode }} &middot;
     generated {{ generated_at.strftime('%Y-%m-%d %H:%M:%S %Z') }}
   </p>
 
-  {# PX-HUMAN: the machine proposes, a human confirms. Nothing here is a confirmed issue. #}
+  {# Machine-found = the deterministic engine proposed it; human-validated = a person
+     confirmed it. The two are separated so a machine guess is never presented as a confirmed
+     vuln (rule PX-HUMAN). Both sets are already filtered to in-report findings. #}
+  {% set machine_findings = findings | selectattr('status.value', 'in', ['new', 'triaged'])
+     | list %}
+  {% set validated_findings = findings | rejectattr('status.value', 'in', ['new', 'triaged'])
+     | list %}
+
+  <h2>Human-validated findings ({{ validated_findings | length }})</h2>
+  <p class="meta">Confirmed by a reviewer. These are the findings that belong in the report.</p>
+  {% if validated_findings %}
+  {{ findings_table(validated_findings) }}
+  {% else %}
+  <p class="empty">No findings have been human-validated yet.</p>
+  {% endif %}
+
+  {# PX-HUMAN: the machine proposes, a human confirms. Nothing in this section is confirmed. #}
   <div class="banner">
     <strong>Machine-found, unvalidated.</strong>
-    Every finding below was produced automatically by a deterministic passive check and has
-    <strong>not</strong> been confirmed by a human. Treat these as candidates for review,
-    not as verified vulnerabilities. Findings must pass human validation before they belong
-    in a client-facing report.
+    Every finding in this section was produced automatically by a deterministic passive check
+    and has <strong>not</strong> been confirmed by a human. Treat these as candidates for
+    review, not as verified vulnerabilities. Findings must pass human validation before they
+    belong in a client-facing report.
   </div>
 
-  <h2>Findings ({{ findings | length }})</h2>
-
-  {% if findings %}
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th><th>Title</th><th>Target</th><th>Severity</th>
-        <th>CVSS</th><th>ATT&amp;CK</th><th>Confidence</th><th>Remediation</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for finding in findings %}
-      <tr>
-        <td><code>{{ finding.display_id }}</code></td>
-        <td>{{ finding.title }}</td>
-        <td>{{ finding.target }}</td>
-        <td>{{ finding.severity.value }}</td>
-        <td>{{ '%.1f' % finding.cvss if finding.cvss is not none else '-' }}</td>
-        <td>{{ finding.attack_techniques | join(', ') or '-' }}</td>
-        <td>{{ finding.confidence.value }}</td>
-        <td>{{ finding.remediation or '-' }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <h2>Machine-found, unvalidated ({{ machine_findings | length }})</h2>
+  {% if machine_findings %}
+  {{ findings_table(machine_findings) }}
   {% else %}
-  <p class="empty">No findings recorded for this engagement yet.</p>
+  <p class="empty">No unvalidated findings are currently in-report.</p>
   {% endif %}
 </body>
 </html>

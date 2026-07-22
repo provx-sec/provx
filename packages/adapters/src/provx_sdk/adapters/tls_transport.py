@@ -24,6 +24,7 @@ import json
 from typing import Any, Final
 from urllib.parse import urlsplit
 
+from provx_sdk.adapters.security_headers import HSTS_RULE_ID
 from provx_sdk.fetch import TlsHandshake, fetch_within_scope, probe_tls_within_scope
 from provx_sdk.findings import Confidence, Evidence, FindingDraft, Module, Severity
 from provx_sdk.scope import ScopePolicy
@@ -42,7 +43,7 @@ HSTS_HEADER: Final = "strict-transport-security"
 class TransportRule:
     """One transport check: its stable id, how to describe it, and how to weight it."""
 
-    __slots__ = ("check", "title", "severity", "cvss", "techniques", "remediation")
+    __slots__ = ("check", "title", "severity", "cvss", "techniques", "remediation", "rule_id")
 
     def __init__(
         self,
@@ -52,6 +53,7 @@ class TransportRule:
         cvss: float,
         techniques: list[str],
         remediation: str,
+        rule_id: str | None = None,
     ) -> None:
         self.check = check
         self.title = title
@@ -59,6 +61,9 @@ class TransportRule:
         self.cvss = cvss
         self.techniques = techniques
         self.remediation = remediation
+        # Canonical cross-adapter dedup id; set only where security_headers reports the same
+        # issue (HSTS) so the two collapse into one finding (PX-DETERMINISM).
+        self.rule_id = rule_id
 
 
 RULES: Final[dict[str, TransportRule]] = {
@@ -81,6 +86,7 @@ RULES: Final[dict[str, TransportRule]] = {
             [AITM_TECHNIQUE],
             "Send `Strict-Transport-Security: max-age=31536000; includeSubDomains` so browsers "
             "refuse to downgrade to plaintext HTTP.",
+            rule_id=HSTS_RULE_ID,
         ),
         TransportRule(
             "cert-expired",
@@ -218,6 +224,7 @@ class TlsTransportAdapter:
             confidence=Confidence.HIGH,
             attack_techniques=list(rule.techniques),
             remediation=rule.remediation,
+            rule_id=rule.rule_id,
             evidence=Evidence(
                 tool_output=raw,
                 matched_rule=f"{self.name}:{rule.check}",

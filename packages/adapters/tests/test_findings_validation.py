@@ -86,3 +86,34 @@ def test_draft_promotes_to_a_finding_past_the_old_four_digit_ceiling() -> None:
 
     assert finding.display_id == "PVX-10000"
     assert finding.attack_techniques == ["T1595"]
+
+
+def test_dedup_key_uses_rule_id_over_title_when_set() -> None:
+    # Two adapters, different wording, same canonical rule_id and target -> one issue.
+    a = make_draft(title="Missing Strict-Transport-Security header", rule_id="missing-hsts")
+    b = make_draft(title="HSTS header absent", rule_id="missing-hsts")
+
+    assert a.dedup_key == b.dedup_key
+
+
+def test_dedup_key_falls_back_to_normalized_title_without_a_rule_id() -> None:
+    # No rule_id: identity is the normalized title, so casing/whitespace does not split it.
+    a = make_draft(title="Missing X-Frame-Options header")
+    b = make_draft(title="  missing   x-frame-options   HEADER ")
+
+    assert a.dedup_key == b.dedup_key
+
+
+def test_dedup_key_normalizes_the_target() -> None:
+    a = make_draft(target="https://Example.com/")
+    b = make_draft(target="https://example.com")
+
+    assert a.dedup_key == b.dedup_key
+
+
+def test_dedup_key_separates_findings_by_location() -> None:
+    # Same missing flag on two different cookies stays two findings.
+    a = make_draft(rule_id="secure-missing", location="session")
+    b = make_draft(rule_id="secure-missing", location="csrf")
+
+    assert a.dedup_key != b.dedup_key
