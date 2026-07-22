@@ -108,6 +108,50 @@ class InReportRequest(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class CredentialCreate(BaseModel):
+    """Request body for storing an engagement's authenticated-scanning credential.
+
+    The ``value`` is a live secret: it is write-only (never returned), encrypted at rest, and must
+    not be logged (rule PX-SECRETS). ``header_name`` is required only for a custom-header
+    credential; it is ignored for bearer/cookie, whose header is fixed.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    cred_type: str = Field(
+        pattern="^(bearer|cookie|header)$", description="bearer | cookie | header"
+    )
+    value: str = Field(min_length=1, description="The secret; write-only, never returned")
+    header_name: str | None = Field(default=None, max_length=200)
+    label: str | None = Field(default=None, max_length=200, description="Optional operator label")
+
+
+class CredentialRead(BaseModel):
+    """A stored credential as returned to clients - metadata only, never the value (PX-SECRETS)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    engagement_id: uuid.UUID
+    cred_type: str
+    header_name: str
+    label: str | None
+    created_at: datetime
+
+
+class ScanRequest(BaseModel):
+    """Request body for triggering a scan.
+
+    ``authenticated`` runs the scan with the engagement's stored credential presented at the egress
+    boundary. Absent/false runs an anonymous scan (the existing behavior), so an old client that
+    sends no body is unchanged.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    authenticated: bool = False
+
+
 class ErrorResponse(BaseModel):
     """The user-safe error envelope (rules PX-ERRORS, B-FA-06, S-13)."""
 

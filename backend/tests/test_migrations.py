@@ -63,6 +63,20 @@ def test_finding_display_id_is_unique_per_engagement(alembic_config: Config) -> 
     )
 
 
+def test_upgrade_creates_the_credential_table(alembic_config: Config) -> None:
+    command.upgrade(alembic_config, "head")
+
+    engine = create_engine(_sync_url(alembic_config))
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    constraints = inspector.get_unique_constraints("credential") if "credential" in tables else []
+    engine.dispose()
+
+    assert "credential" in tables
+    # One credential per engagement, mirroring Credential.__table_args__.
+    assert any(set(c["column_names"]) == {"engagement_id"} for c in constraints)
+
+
 def test_downgrade_reverses_the_migration(alembic_config: Config) -> None:
     command.upgrade(alembic_config, "head")
     command.downgrade(alembic_config, "base")

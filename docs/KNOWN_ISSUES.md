@@ -89,6 +89,12 @@ engagement's scope. Today the API has no auth at all, so this sits behind a larg
 (audit `F-C1`); it becomes the top item the moment auth lands and scope becomes
 user-supplied in earnest.
 
+**Update (`feat/authenticated-scanning`):** *authenticated scanning* is not the same as *API
+authentication* — the explicit-credential feature landed **without** API RBAC or user-supplied
+scope, so this issue's urgency trigger (an untrusted party supplying a hostname) is still not
+reached. Unchanged and open; the pinned-resolution transport remains the fix and is out of scope
+for the credential work.
+
 **Fix sketch:** resolve once, validate the resolved address, then connect to that address
 with the original `Host` header — a pinned-resolution transport rather than a pre-flight
 lookup.
@@ -122,21 +128,28 @@ session material and tensioning PX-SECRETS. `parse_output` already dropped the c
    content. The seal is unchanged — `evidence_sha256` is over the redacted plaintext, which decryption
    reproduces exactly, so the capture-time hash still verifies.
 
-**Residual risks (deferred):**
-- **Body content beyond headers** is not redacted (general body redaction is undecidable); the at-rest
-  encryption is the mitigation until a structured need appears.
+**Residual risks:**
+
+- **Request-side credential headers** — ✅ addressed by `feat/authenticated-scanning`. An
+  authenticated scan's injected header is attached at the one egress boundary and its name is added
+  to the redaction denylist for that fetch (`Authorization`/`Cookie` were already covered; a custom
+  header name is added), so a reflected copy is sealed as `<redacted:sha256:...>` exactly like a
+  server-sent secret. The credential is also scrubbed from the body if echoed (below).
+- **Body content beyond headers** — ⏳ now **best-effort**, not complete. `provx_sdk.fetch.redact_body`
+  scrubs the exact injected credential plus high-precision secret shapes (JWTs, `Bearer` tokens,
+  reflected `Authorization`/`Set-Cookie` lines) from a response body before it is sealed. It is
+  **deliberately not a completeness guarantee** — general body redaction is undecidable — so at-rest
+  encryption remains the backstop for anything the patterns miss. (Note: the shipping passive adapters
+  seal response *headers*, not bodies, so this primarily hardens future body-sealing adapters and the
+  reflected-credential case.)
 - **URL userinfo** in evidence envelopes (`redirect_chain`/`redirect_location`) is not redacted;
-  `redact_url` covers the log path only. Low exposure today.
-- **Key management:** the AES key is HKDF-derived from `SECRET_KEY`. A dedicated, rotated **KMS-backed
-  key** is the production upgrade.
+  `redact_url` covers the log path only. Low exposure today. **Still open.**
+- **Key management:** the AES key is HKDF-derived from `SECRET_KEY` — used now for both evidence and
+  the credential value at rest. A dedicated, rotated **KMS-backed key** (and a distinct HKDF `info`
+  label to separate evidence and credential keys) is the production upgrade. **Still open.**
 - **SDK-004 (inline-seal)** remains open: the seal still lives outside the `Evidence` model and is
   threaded through `scan_runner`, so a consumer that bypasses it holds unsealed evidence. Tracked in
   `audits/sdk/99_FINDINGS.md`; this change is compatible with resolving it later.
-
-**What makes the residuals urgent:** authenticated scanning. Once real credentials flow through scans,
-request-side `Authorization`/`Cookie` and the (currently unpopulated) `Evidence.raw_request` become
-live vectors — boundary redaction already covers those header names; body/userinfo redaction and a
-KMS key should land alongside auth.
 
 ---
 
@@ -159,6 +172,29 @@ to generate the table from a vendored ATT&CK STIX bundle at build time, still of
 `finding.description` column exist but no adapter populates them yet, so the report falls back
 to the finding `title`. Adapters can start emitting a richer description in a later PR with no
 schema change.
+
+---
+
+## KI-006 — Authenticated scanning supports explicit credentials only (no form-login/session)
+
+**Severity:** Low · **Status:** Open (deferred by design) · **Source:** `feat/authenticated-scanning`
+**Site:** [`packages/adapters/src/provx_sdk/auth.py`](../packages/adapters/src/provx_sdk/auth.py),
+[`backend/app/models/tables.py`](../backend/app/models/tables.py) — `Credential`
+
+Authenticated scanning presents an operator-supplied credential — a **bearer token, a cookie
+string, or a custom header** — injected at the single egress boundary. It deliberately does **not**
+do form-login auto-detection, CSRF token handling, SSO/MFA flows, or session recording/replay. An
+app that only issues a session through an interactive login form cannot be scanned authenticated
+yet; the operator must supply an already-obtained cookie/bearer/header.
+
+**Why deferred:** explicit credentials are the safe, deterministic 80% and carry no brittle,
+app-specific automation. Form-login and session capture are a materially larger design (per-app
+login recipes, CSRF extraction, re-auth on expiry) and are the right next increment, not a
+same-PR add-on. Scoped as **explicit creds only in v0.2**; form-login/session-record is a later
+capability.
+
+**What makes it urgent:** a concrete engagement whose target cannot mint a token/cookie out of
+band and only authenticates via a login form.
 
 ---
 

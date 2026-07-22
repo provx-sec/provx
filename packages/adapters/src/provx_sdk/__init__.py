@@ -21,6 +21,12 @@ Scaffolding status: the findings contract, scope enforcement, the scoped fetch b
 adapter discovery, and one passive adapter exist; the playbook execution engine does not.
 """
 
+from provx_sdk.auth import (
+    AuthCredential,
+    InvalidCredentialError,
+    build_auth,
+    resolve_header_name,
+)
 from provx_sdk.evidence import EvidenceSeal, seal
 from provx_sdk.fetch import (
     MISSING_LOCATION,
@@ -62,6 +68,7 @@ __all__ = [
     "OUT_OF_SCOPE_REDIRECT",
     "TOO_MANY_REDIRECTS",
     "AdapterNotFoundError",
+    "AuthCredential",
     "Confidence",
     "DiscoveryRule",
     "Evidence",
@@ -70,6 +77,7 @@ __all__ = [
     "Finding",
     "FindingDraft",
     "FindingStatus",
+    "InvalidCredentialError",
     "Module",
     "OutOfScopeError",
     "OutOfScopeRequest",
@@ -81,11 +89,13 @@ __all__ = [
     "ScopePolicy",
     "Severity",
     "ToolAdapter",
+    "build_auth",
     "canonical_host",
     "fetch_within_scope",
     "is_dangerous_host",
     "load_adapter",
     "load_adapters",
+    "resolve_header_name",
     "seal",
     "target_host",
     "validate_attack_techniques",
