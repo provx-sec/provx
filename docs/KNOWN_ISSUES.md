@@ -198,6 +198,29 @@ band and only authenticates via a login form.
 
 ---
 
+## KI-007 — Third-party httpx/httpcore wire-debug logging echoes a reflected credential
+
+**Severity:** Low · **Status:** Open (operational note) · **Source:** `fix/auth-test-hardening`
+**Site:** [`packages/adapters/src/provx_sdk/fetch.py`](../packages/adapters/src/provx_sdk/fetch.py)
+
+Provx redacts credentials at the single egress boundary before anything is sealed, stored, or
+logged, and Provx's own loggers (`app`, `provx_sdk`) never carry a header value or a response body.
+But `httpx`/`httpcore` ship their own DEBUG-level "wire" logging, and when that is enabled it logs
+raw request and response bytes — including a credential the target reflects back in a header or
+body — **before** Provx's redaction runs. This is third-party diagnostic output, off by default,
+and is not a Provx control.
+
+**How to stay safe:** do **not** enable `httpx`/`httpcore` DEBUG (wire-debug) logging in production
+or in any environment where logs are retained. The integration test asserts credential absence only
+against Provx's own loggers (`app`/`provx_sdk`) for exactly this reason; the wire-debug channel is
+out of Provx's redaction reach by construction.
+
+**Why deferred:** the leak requires an operator to opt into third-party debug logging that Provx
+never turns on. The durable fix (a logging filter that scrubs the httpcore wire logger, or refusing
+to configure it) is a small hardening item, not a shipped-behavior defect.
+
+---
+
 ## Not listed here
 
 Absent features are not issues. Authentication, the job queue, the PX-DSL expression
