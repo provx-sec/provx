@@ -2,7 +2,7 @@
 
 *The single source of truth for "where are we vs. the plan." Update this file as part of EVERY PR's Definition of Done. If it's not here, it's not tracked. Do not trust memory (human or AI) over this file.*
 
-**Last updated:** branch `feat/authenticated-scanning` (explicit-credential authenticated scanning) · **Current phase:** Phase 2 — Web module (✅ complete) · post-v0.1 depth · **Target milestone:** v0.1 (ready to tag)
+**Last updated:** branch `fix/auth-test-hardening` (authenticated-scanning test hardening; see the authenticated-scanning row + KI-007) · **Current phase:** Phase 2 — Web module (✅ complete) · post-v0.1 depth · **Target milestone:** v0.1 (ready to tag)
 
 ---
 
@@ -32,7 +32,7 @@
 | Evidence redaction + encryption at rest | ✅ | #9 (redaction) + #10 (encryption) |
 | **Findings dedup + validate/in-report lifecycle** | ✅ | `feat/findings-pipeline`: deterministic cross-adapter dedup (rule_id+target+location) keeping every evidence ref; validation lifecycle + transition/in-report endpoints; FP suppression + regression intent |
 | HTML report hardening (severity order, ATT&CK, machine-vs-validated) | ✅ | `feat/report-hardening` (PR TBD): 7 documented sections (exec summary + posture, scope/RoE, methodology, findings summary, detailed findings, ATT&CK coverage, remediation roadmap); deterministic Critical→Info ordering; classification/branding from config; sealed evidence *reference* only (hash + capture time, never raw); machine-vs-validated split + PX-HUMAN banner kept. **Completes v0.1.** |
-| **Authenticated scanning (explicit creds)** | ✅ | `feat/authenticated-scanning` (PR TBD): write-only encrypted `credential` table (bearer/cookie/custom header), decrypted only in-memory at scan time; credential injected at the **single** egress boundary and attached only to in-scope hops (SSRF guard, not just ordering); injected header covered by `SENSITIVE_HEADERS` redaction so a reflected copy is sealed as `<redacted:...>`; best-effort body-secret redaction. Adapters unchanged (auth rides on `ScopePolicy`→`fetch`). Proven by a **no-stub** integration test (401→200; credential authenticates; absent from sealed evidence/finding/report/Provx logs; off-scope redirect stopped and credential-free). Closes KI-004 request-side residuals. Form-login/SSO/MFA/session-record deferred (KI-006). |
+| **Authenticated scanning (explicit creds)** | ✅ | `feat/authenticated-scanning` (PR TBD): write-only encrypted `credential` table (bearer/cookie/custom header), decrypted only in-memory at scan time; credential injected at the **single** egress boundary and attached only to in-scope hops (SSRF guard, not just ordering); injected header covered by `SENSITIVE_HEADERS` redaction so a reflected copy is sealed as `<redacted:...>`; best-effort body-secret redaction. Adapters unchanged (auth rides on `ScopePolicy`→`fetch`). Proven by a **no-stub** integration test (401→200; credential authenticates; absent from sealed evidence/finding/report/Provx logs; off-scope redirect stopped and credential-free). Closes KI-004 request-side residuals. Form-login/SSO/MFA/session-record deferred (KI-006). **Test hardening (`fix/auth-test-hardening`):** the no-stub integration test now proves body redaction end-to-end (via the body-sealing `wellknown` adapter), the `extra_sensitive` custom-header path (parametrized across bearer/cookie/custom-header), and isolates the redirect scope re-check with a non-dangerous off-scope hostname; the finding/report/Provx-log absence checks are relabelled honestly as **regression guards** (those surfaces carry no evidence by construction), and third-party wire-debug logging is documented as KI-007. |
 
 ## Open issues / known issues (tracked, deferred deliberately)
 
@@ -43,6 +43,7 @@
 | SDK-004 | Evidence inline-seal design (envelope vs inline field) | nothing | adapter #6 / auth |
 | KI-004 residuals | request-side `Authorization`/`Cookie` + custom-header ✅ covered by boundary redaction; body-content ✅ best-effort (`redact_body`); URL-userinfo + KMS key still open | real credentials | ⏳ partly closed by `feat/authenticated-scanning` |
 | KI-006 | form-login/SSO/MFA/CSRF/session-record deferred; explicit creds only in v0.2 | nothing | when a real form-login need appears |
+| KI-007 | third-party httpx/httpcore wire-debug logging echoes a reflected credential before Provx redaction; Provx's own loggers stay clean | logs, only if wire-debug is enabled | operational note — don't enable wire-debug in production |
 | — | Vitest frontend test runner (report-proxy guard has no regression test) | nothing | v0.5 |
 | — | Second adapter proves pattern | — | ✅ done |
 | — | accuracy-gate last-wins (KI-001) | — | ✅ resolved |
